@@ -1,0 +1,92 @@
+# HYQUB — root .gitignore
+# ---------------------------------------------------------------
+# Secrets — never commit
+# ---------------------------------------------------------------
+.env
+.env.*
+!.env.example
+
+# ---------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+
+# Distribution / packaging
+*.egg-info/
+dist/
+build/
+*.egg
+*.whl
+
+# Test / coverage artefacts
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+
+# Type checking
+.mypy_cache/
+.dmypy.json
+.pyright/
+
+# ---------------------------------------------------------------
+# Blockchain / Foundry
+# (blockchain/.gitignore also covers out/ and cache/ locally)
+# ---------------------------------------------------------------
+blockchain/out/
+blockchain/cache/
+
+# Anvil persistent state — local-only, contains private keys
+# for the default dev accounts; never share
+blockchain/anvil-state/
+
+# ---------------------------------------------------------------
+# Logs — generated at runtime, not source
+# ---------------------------------------------------------------
+*.log
+anvil.log
+backend.log
+
+# ---------------------------------------------------------------
+# OS / editor artefacts
+# ---------------------------------------------------------------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ---------------------------------------------------------------
+# Node (frontend, if added later)
+# ---------------------------------------------------------------
+node_modules/
+.next/
+.nuxt/
+out/
+
+# ---------------------------------------------------------------
+# Backup / patch files (see Task I cleanup report)
+# ---------------------------------------------------------------
+*.bak
+*.backup
+patch_*.py
+
+# ---------------------------------------------------------------
+# Frontend backup directory (created 2026-09-26, contains .env.local)
+# Keep locally but never commit.
+# ---------------------------------------------------------------
+frontend.backup-*/
