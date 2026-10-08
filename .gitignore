@@ -90,3 +90,17 @@ patch_*.py
 # Keep locally but never commit.
 # ---------------------------------------------------------------
 frontend.backup-*/
+
+# Auth database
+hyqub.db
+*.db
+
+# Local frontend config
+frontend/js/config.local.js
+
+# Auth database
+hyqub.db
+*.db
+
+# Local frontend config
+frontend/js/config.local.js

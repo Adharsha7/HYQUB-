@@ -1,0 +1,12 @@
+# HYQUB frontend .gitignore
+
+# Local config contains real wallet address — never commit
+js/config.local.js
+
+# Python static server artefacts
+__pycache__/
+
+# Editor
+.DS_Store
+.vscode/
+*.swp

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HYQUB — Payment</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- ── Top bar ── -->
+  <header class="topbar">
+    <div class="topbar-brand">
+      <div class="topbar-logo">HQ</div>
+      <span class="topbar-name">HYQUB</span>
+    </div>
+    <div class="topbar-right">
+      <span id="session-badge" class="session-pill">Session: not started</span>
+    </div>
+  </header>
+
+  <!-- ── Side nav ── -->
+  <nav class="sidenav">
+    <button class="nav-btn active" data-screen="dashboard">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+        <rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/>
+        <rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/>
+      </svg>
+      Dashboard
+    </button>
+    <button class="nav-btn" data-screen="send">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M2 8h12M10 4l4 4-4 4"/>
+      </svg>
+      Send
+    </button>
+  </nav>
+
+  <!-- ── Main ── -->
+  <main class="main-content">
+
+    <!-- ════ Dashboard ════ -->
+    <div id="screen-dashboard" class="screen active">
+      <div class="page-title">Dashboard</div>
+
+      <!-- Wallet selector -->
+      <div class="wallet-selector-bar">
+        <label for="dashboard-sender-sel">Viewing wallet:</label>
+        <select id="dashboard-sender-sel"></select>
+      </div>
+
+      <!-- Wallet identity -->
+      <div class="card" style="margin-bottom:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <div>
+            <div class="label" style="margin-bottom:4px">Wallet</div>
+            <div style="font-weight:600;font-size:15px" id="wallet-label"></div>
+            <div class="address-display" style="margin-top:4px">
+              <span class="address-short mono" id="wallet-addr-short"></span>
+              <button class="copy-btn btn-sm" id="wallet-copy-btn">Copy</button>
+            </div>
+          </div>
+          <span id="wallet-session-status" class="pill amber">Session key: not started</span>
+        </div>
+      </div>
+
+      <!-- Balance hero -->
+      <div class="balance-hero">
+        <div class="balance-label">Available Balance</div>
+        <div>
+          <span class="balance-amount" id="balance-eth">—</span>
+          <span class="balance-unit">ETH</span>
+        </div>
+        <div class="balance-wei" id="balance-wei-detail"></div>
+        <div class="balance-actions">
+          <button class="btn btn-primary" id="btn-go-send">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 8h12M10 4l4 4-4 4"/></svg>
+            Send Payment
+          </button>
+          <button class="btn btn-secondary" id="btn-refresh">↻ Refresh</button>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-title">Network</div><div class="stat-value" id="stat-network">—</div></div>
+        <div class="stat-card"><div class="stat-title">Chain ID</div><div class="stat-value" id="stat-chain">—</div></div>
+        <div class="stat-card"><div class="stat-title">Block</div><div class="stat-value" id="stat-block">—</div></div>
+        <div class="stat-card"><div class="stat-title">Nonce</div><div class="stat-value" id="stat-nonce">—</div></div>
+        <div class="stat-card"><div class="stat-title">Key Version</div><div class="stat-value" id="stat-keyver">—</div></div>
+        <div class="stat-card"><div class="stat-title">Registered</div><div class="stat-value" id="stat-registered">—</div></div>
+        <div class="stat-card"><div class="stat-title">Owner</div><div class="stat-value mono" id="stat-owner">—</div></div>
+      </div>
+
+      <div id="dashboard-status" class="text-dim" style="margin-bottom:14px;font-size:13px"></div>
+
+      <!-- History -->
+      <div class="card">
+        <div class="label" style="margin-bottom:4px">Recent Activity</div>
+        <div class="history-note">This session only — not persisted.</div>
+        <div id="history-empty" class="history-empty">No payments this session yet.</div>
+        <div style="overflow-x:auto">
+          <table class="history-table">
+            <thead><tr><th>Status</th><th>Time</th><th>From</th><th>To</th><th>Amount</th><th>Tx Hash</th></tr></thead>
+            <tbody id="history-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════ Send ════ -->
+    <div id="screen-send" class="screen">
+      <div class="page-title">Send Payment</div>
+      <div class="card" style="max-width:540px">
+        <div id="send-error" class="field-error" style="margin-bottom:10px"></div>
+        <form id="send-form">
+          <!-- FROM -->
+          <div class="form-group">
+            <label for="from-sel">From</label>
+            <select id="from-sel"></select>
+            <div class="sender-detail" id="sender-detail">
+              <span class="sender-addr mono"></span>
+              <span class="sender-bal"></span>
+            </div>
+          </div>
+
+          <!-- TO -->
+          <div class="form-group">
+            <label for="to-sel">To</label>
+            <select id="to-sel"></select>
+          </div>
+
+          <!-- Manual recipient -->
+          <div class="form-group" id="manual-group" hidden>
+            <label for="recipient-manual">Custom recipient address</label>
+            <input type="text" id="recipient-manual" placeholder="0x…" autocomplete="off">
+          </div>
+
+          <!-- Amount -->
+          <div class="form-group">
+            <label for="amount-input">Amount</label>
+            <div class="input-suffix">
+              <input type="text" id="amount-input" placeholder="0.00" inputmode="decimal" autocomplete="off">
+              <span class="input-suffix-label">ETH</span>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-full">Review Payment →</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ════ Review ════ -->
+    <div id="screen-review" class="screen">
+      <div class="page-title">Review Payment</div>
+      <div class="card" style="max-width:540px">
+        <div class="review-row">
+          <span class="review-key">Amount</span>
+          <span class="review-val review-amount-big" id="review-amount">—</span>
+        </div>
+        <div class="review-row">
+          <span class="review-key">From</span>
+          <span class="review-val mono" id="review-from">—</span>
+        </div>
+        <div class="review-row">
+          <span class="review-key">To</span>
+          <span class="review-val mono" id="review-to-short">—</span>
+        </div>
+        <div class="review-row">
+          <span class="review-key">Network</span>
+          <span class="review-val" id="review-network">—</span>
+        </div>
+        <div class="review-row">
+          <span class="review-key">Protocol</span>
+          <span class="review-val text-dim">HYQUB ML-DSA · ERC-4337</span>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:18px">
+          <button class="btn btn-secondary" id="btn-back-to-send">← Back</button>
+          <button class="btn btn-primary" style="flex:1" id="btn-confirm-pay">Confirm &amp; Pay</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════ Progress ════ -->
+    <div id="screen-progress" class="screen">
+      <div class="progress-wrap">
+        <div class="progress-title">Processing Payment…</div>
+        <div class="step-list" id="step-list"></div>
+      </div>
+    </div>
+
+    <!-- ════ Success ════ -->
+    <div id="screen-success" class="screen">
+      <div class="result-wrap">
+        <div class="result-icon">✅</div>
+        <div class="result-title">Payment Successful</div>
+        <div class="result-sub">Transaction confirmed on Anvil chain.</div>
+        <div class="result-details">
+          <div class="review-row" style="padding:13px 16px"><span class="review-key">Amount</span><span class="review-val" id="success-amount">—</span></div>
+          <div class="review-row" style="padding:13px 16px"><span class="review-key">From</span><span class="review-val mono" id="success-from">—</span></div>
+          <div class="review-row" style="padding:13px 16px;border-bottom:none"><span class="review-key">To</span><span class="review-val mono" id="success-to">—</span></div>
+        </div>
+        <div class="tx-hash-row">
+          <div>
+            <div class="tx-hash-label">Transaction Hash</div>
+            <div class="tx-hash-val mono" id="success-tx-hash">—</div>
+          </div>
+          <div id="success-hash-copy"></div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:center">
+          <button class="btn btn-secondary" id="btn-success-another">Send Another</button>
+          <button class="btn btn-primary" id="btn-success-done">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════ Failure ════ -->
+    <div id="screen-failure" class="screen">
+      <div class="result-wrap">
+        <div class="result-icon">❌</div>
+        <div class="error-banner" id="failure-message"></div>
+        <div style="display:flex;gap:10px;justify-content:center">
+          <button class="btn btn-secondary" id="btn-failure-home">← Home</button>
+          <button class="btn btn-primary" id="btn-try-again">Try Again</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
