@@ -1,20 +1,29 @@
 """
-Unit tests for POST /auth/signup and POST /auth/login.
+Unit tests for POST /auth/signup, POST /auth/login, POST /auth/logout,
+and GET /me (session-gated).
 
-These tests run without Anvil (unit mark, no blockchain).
-auth_service.signup and auth_service.login are mocked — we test
-only HTTP status codes, response shapes, and error-to-status mapping.
+CONTRACT (definitive spec):
+  - /auth/signup (201) and /auth/login (200) return ONLY:
+        {token, user_id, name, expires_in}
+    Signup returns 201. NEITHER endpoint ever exposes wallet_address,
+    ml_dsa_public_key, encrypted_secret_key, or any other key material.
+  - Login failures (wrong credentials) → 401 "Wrong name or password".
+  - 5 consecutive failures → 60s lockout → 429 (any detail).
+  - /auth/logout deletes the session; subsequent /me calls return 401.
+  - GET /me requires a valid Bearer token; missing/invalid → 401.
+
+These tests run without Anvil.  auth_service.signup / .login and
+get_wallet_balance are mocked where needed.
 """
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
-# app is created at module import time in app.main.
-# The unit conftest already patches Web3 before this import runs.
+# The unit conftest patches Web3 before this import.
 from app.main import app
 
 client = TestClient(app)
@@ -33,13 +42,27 @@ _DUMMY_USER = {
     "key_version": 1,
 }
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _signup_and_get_token() -> str:
+    """Perform a mocked signup and return the session token."""
+    with patch("app.api.auth.signup", return_value=_DUMMY_USER):
+        resp = client.post(
+            "/auth/signup",
+            json={"username": "alice", "password": "supersecret"},
+        )
+    assert resp.status_code == 201
+    return resp.json()["token"]
+
 
 # ---------------------------------------------------------------------------
 # /auth/signup
 # ---------------------------------------------------------------------------
 
 class TestAuthSignup:
-    def test_signup_success_returns_201_and_auth_response(self):
+    def test_signup_success_returns_201_with_token(self):
         with patch("app.api.auth.signup", return_value=_DUMMY_USER):
             resp = client.post(
                 "/auth/signup",
@@ -47,12 +70,21 @@ class TestAuthSignup:
             )
         assert resp.status_code == 201
         body = resp.json()
+        assert "token" in body
+        assert isinstance(body["token"], str) and len(body["token"]) > 0
         assert body["user_id"] == 1
-        assert body["username"] == "alice"
-        assert body["wallet_address"] == _DUMMY_USER["wallet_address"]
-        assert body["ml_dsa_public_key"] == _DUMMY_USER["ml_dsa_public_key"]
-        assert body["key_version"] == 1
-        # Sensitive fields must NOT be in the response
+        assert body["name"] == "alice"
+        assert body["expires_in"] == 1800
+
+    def test_signup_response_never_contains_key_material(self):
+        with patch("app.api.auth.signup", return_value=_DUMMY_USER):
+            resp = client.post(
+                "/auth/signup",
+                json={"username": "alice", "password": "supersecret"},
+            )
+        body = resp.json()
+        assert "wallet_address" not in body
+        assert "ml_dsa_public_key" not in body
         assert "encrypted_secret_key" not in body
         assert "password_hash" not in body
 
@@ -84,7 +116,6 @@ class TestAuthSignup:
         assert resp.status_code == 422
 
     def test_signup_password_too_short_returns_422(self):
-        # min_length=8 in SignupRequest
         resp = client.post(
             "/auth/signup",
             json={"username": "alice", "password": "short"},
@@ -101,8 +132,8 @@ class TestAuthSignup:
     def test_signup_provisioning_incomplete_returns_503(self):
         """
         If ensure_account returns a user dict without wallet_address
-        (e.g., Anvil was unreachable but no exception was raised),
-        the route should surface a 503.
+        (e.g. Anvil was unreachable but no exception was raised),
+        the route must surface a 503.
         """
         incomplete_user = {**_DUMMY_USER, "wallet_address": None}
         with patch("app.api.auth.signup", return_value=incomplete_user):
@@ -119,7 +150,7 @@ class TestAuthSignup:
 # ---------------------------------------------------------------------------
 
 class TestAuthLogin:
-    def test_login_success_returns_200_and_auth_response(self):
+    def test_login_success_returns_200_with_token(self):
         with patch("app.api.auth.login", return_value=_DUMMY_USER):
             resp = client.post(
                 "/auth/login",
@@ -127,12 +158,24 @@ class TestAuthLogin:
             )
         assert resp.status_code == 200
         body = resp.json()
+        assert "token" in body
+        assert isinstance(body["token"], str) and len(body["token"]) > 0
         assert body["user_id"] == 1
-        assert body["username"] == "alice"
-        assert body["wallet_address"] == _DUMMY_USER["wallet_address"]
+        assert body["name"] == "alice"
+        assert body["expires_in"] == 1800
+
+    def test_login_response_never_contains_key_material(self):
+        with patch("app.api.auth.login", return_value=_DUMMY_USER):
+            resp = client.post(
+                "/auth/login",
+                json={"username": "alice", "password": "supersecret"},
+            )
+        body = resp.json()
+        assert "wallet_address" not in body
+        assert "ml_dsa_public_key" not in body
         assert "encrypted_secret_key" not in body
 
-    def test_login_wrong_credentials_returns_401(self):
+    def test_login_wrong_credentials_returns_401_generic_message(self):
         with patch(
             "app.api.auth.login",
             side_effect=ValueError("Invalid username or password"),
@@ -142,7 +185,8 @@ class TestAuthLogin:
                 json={"username": "alice", "password": "wrongpassword"},
             )
         assert resp.status_code == 401
-        assert "Invalid" in resp.json()["detail"]
+        # Must be generic — must NOT leak which field was wrong
+        assert resp.json()["detail"] == "Wrong name or password"
 
     def test_login_blockchain_failure_returns_503(self):
         with patch(
@@ -162,3 +206,90 @@ class TestAuthLogin:
     def test_login_empty_body_returns_422(self):
         resp = client.post("/auth/login", json={})
         assert resp.status_code == 422
+
+    def test_login_lockout_after_5_failures_returns_429(self):
+        """
+        After 5 consecutive wrong-password attempts the login_guard
+        locks the account for 60 s.  The route must return 429 (not 401).
+        """
+        # Patch check_locked to simulate an active lockout
+        with (
+            patch("app.api.auth.login", side_effect=ValueError("Invalid username or password")),
+            patch("app.api.auth.check_locked", return_value=True),
+        ):
+            resp = client.post(
+                "/auth/login",
+                json={"username": "alice", "password": "wrong"},
+            )
+        assert resp.status_code == 429
+
+
+# ---------------------------------------------------------------------------
+# /auth/logout
+# ---------------------------------------------------------------------------
+
+class TestAuthLogout:
+    def test_logout_returns_ok(self):
+        token = _signup_and_get_token()
+        resp = client.post(
+            "/auth/logout",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json() == {"ok": True}
+
+    def test_logout_without_token_still_returns_ok(self):
+        resp = client.post("/auth/logout")
+        assert resp.status_code == 200
+        assert resp.json() == {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# GET /me — session-gated
+# ---------------------------------------------------------------------------
+
+class TestMeEndpoint:
+    def test_me_without_token_returns_401(self):
+        resp = client.get("/me")
+        assert resp.status_code == 401
+
+    def test_me_with_invalid_token_returns_401(self):
+        resp = client.get("/me", headers={"Authorization": "Bearer notarealtoken"})
+        assert resp.status_code == 401
+
+    def test_me_with_valid_token_returns_200(self):
+        token = _signup_and_get_token()
+        # dependencies.py calls get_user_by_id — mock it so no real DB is needed
+        with (
+            patch("app.dependencies.get_user_by_id", return_value=_DUMMY_USER),
+            patch("app.api.me.get_wallet_balance", return_value=10**18),
+        ):
+            resp = client.get("/me", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["id"] == 1
+        assert body["name"] == "alice"
+        assert "balance_wei" in body
+
+    def test_me_response_never_contains_wallet_address_or_key_material(self):
+        token = _signup_and_get_token()
+        with (
+            patch("app.dependencies.get_user_by_id", return_value=_DUMMY_USER),
+            patch("app.api.me.get_wallet_balance", return_value=0),
+        ):
+            resp = client.get("/me", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 200
+        body = resp.json()
+        # /me may return balance and key_version, but never raw key blobs
+        assert "wallet_address" not in body
+        assert "ml_dsa_public_key" not in body
+        assert "encrypted_secret_key" not in body
+
+    def test_me_after_logout_returns_401(self):
+        token = _signup_and_get_token()
+        # Logout
+        client.post("/auth/logout", headers={"Authorization": f"Bearer {token}"})
+        # /me must now refuse the invalidated token
+        with patch("app.api.me.get_wallet_balance", return_value=0):
+            resp = client.get("/me", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 401

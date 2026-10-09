@@ -11,11 +11,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import auth
 from app.api import health
-from app.api import register
-from app.api import verify
-from app.api import rotate
+from app.api import me
 from app.api import submit_transaction
 from app.api import transaction_intent
+from app.api import users
+from app.api import verify
 from app.api import wallet
 
 from app.config import get_settings
@@ -81,9 +81,9 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(auth.router)
-    app.include_router(register.router)
+    app.include_router(me.router)
+    app.include_router(users.router)
     app.include_router(verify.router)
-    app.include_router(rotate.router)
     app.include_router(transaction_intent.router)
     app.include_router(submit_transaction.router)
     app.include_router(wallet.router)

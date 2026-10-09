@@ -61,7 +61,46 @@ def init_db(db_path: str = DEFAULT_DB_PATH) -> None:
         if "key_version" not in existing_cols:
             cursor.execute("ALTER TABLE users ADD COLUMN key_version INTEGER")
 
+        # Transactions ledger (append-only; grows when /submit-transaction succeeds)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS transactions (
+                tx_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                wallet_address TEXT NOT NULL,
+                target TEXT NOT NULL,
+                value_wei TEXT NOT NULL,
+                tx_hash TEXT NOT NULL,
+                created_at INTEGER NOT NULL
+            )
+        """)
+
         conn.commit()
+
+
+def get_user_transactions(
+    user_id: int,
+    limit: int = 20,
+    db_path: str = DEFAULT_DB_PATH,
+) -> list[dict]:
+    """
+    Return the most-recent `limit` transactions for a user, newest first.
+    Returns an empty list if the table does not yet have any rows.
+    """
+    init_db(db_path)
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT tx_id, wallet_address, target, value_wei, tx_hash, created_at
+            FROM transactions
+            WHERE user_id = ?
+            ORDER BY tx_id DESC
+            LIMIT ?
+            """,
+            (user_id, limit),
+        )
+        rows = cursor.fetchall()
+    return [dict(row) for row in rows]
 
 
 def get_user_by_id(user_id: int, db_path: str = DEFAULT_DB_PATH) -> Optional[dict[str, Any]]:
