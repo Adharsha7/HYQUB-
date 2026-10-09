@@ -9,6 +9,7 @@ wiring configuration, middleware, and API routers together.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api import auth
 from app.api import health
 from app.api import register
 from app.api import verify
@@ -79,6 +80,7 @@ def create_app() -> FastAPI:
     # -------------------------------------------------
 
     app.include_router(health.router)
+    app.include_router(auth.router)
     app.include_router(register.router)
     app.include_router(verify.router)
     app.include_router(rotate.router)

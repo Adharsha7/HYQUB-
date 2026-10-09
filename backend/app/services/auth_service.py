@@ -1,0 +1,132 @@
+"""
+HYQUB — Authentication & User Storage Service (SQLite)
+"""
+
+from __future__ import annotations
+
+import hashlib
+import os
+import sqlite3
+from typing import Any, Optional
+
+
+DEFAULT_DB_PATH = "hyqub.db"
+
+
+def _hash_password(password: str, salt: bytes | None = None) -> tuple[str, str]:
+    if salt is None:
+        salt = os.urandom(16)
+    hashed = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 100000)
+    return hashed.hex(), salt.hex()
+
+
+def _verify_password(password: str, stored_hash: str, stored_salt: str) -> bool:
+    salt = bytes.fromhex(stored_salt)
+    computed_hash = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 100000).hex()
+    return computed_hash == stored_hash
+
+
+def get_db_connection(db_path: str = DEFAULT_DB_PATH) -> sqlite3.Connection:
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_db(db_path: str = DEFAULT_DB_PATH) -> None:
+    """
+    Initialize users table and apply ALTER TABLE migrations if needed.
+    """
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                password_salt TEXT NOT NULL,
+                wallet_address TEXT
+            )
+        """)
+
+        # Migration: add missing columns if they do not exist
+        cursor.execute("PRAGMA table_info(users)")
+        existing_cols = {row["name"] for row in cursor.fetchall()}
+
+        if "ml_dsa_public_key" not in existing_cols:
+            cursor.execute("ALTER TABLE users ADD COLUMN ml_dsa_public_key TEXT")
+
+        if "encrypted_secret_key" not in existing_cols:
+            cursor.execute("ALTER TABLE users ADD COLUMN encrypted_secret_key TEXT")
+
+        if "key_version" not in existing_cols:
+            cursor.execute("ALTER TABLE users ADD COLUMN key_version INTEGER")
+
+        conn.commit()
+
+
+def get_user_by_id(user_id: int, db_path: str = DEFAULT_DB_PATH) -> Optional[dict[str, Any]]:
+    init_db(db_path)
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
+def get_user_by_username(username: str, db_path: str = DEFAULT_DB_PATH) -> Optional[dict[str, Any]]:
+    init_db(db_path)
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
+def signup(username: str, password: str, db_path: str = DEFAULT_DB_PATH) -> dict[str, Any]:
+    """
+    Sign up a new user, then run ensure_account to deploy wallet & register ML-DSA keys.
+    """
+    init_db(db_path)
+
+    if not username or not password:
+        raise ValueError("Username and password must not be empty")
+
+    existing = get_user_by_username(username, db_path)
+    if existing:
+        raise ValueError(f"Username already taken: {username}")
+
+    pwd_hash, pwd_salt = _hash_password(password)
+
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO users (username, password_hash, password_salt)
+            VALUES (?, ?, ?)
+            """,
+            (username, pwd_hash, pwd_salt),
+        )
+        user_id = cursor.lastrowid
+        conn.commit()
+
+    from app.services.account_service import ensure_account
+
+    return ensure_account(user_id, password, db_path=db_path)
+
+
+def login(username: str, password: str, db_path: str = DEFAULT_DB_PATH) -> dict[str, Any]:
+    """
+    Authenticate a user, then run ensure_account to guarantee wallet & keys are initialized.
+    """
+    init_db(db_path)
+
+    user = get_user_by_username(username, db_path)
+    if not user:
+        raise ValueError("Invalid username or password")
+
+    if not _verify_password(password, user["password_hash"], user["password_salt"]):
+        raise ValueError("Invalid username or password")
+
+    from app.services.account_service import ensure_account
+
+    return ensure_account(user["user_id"], password, db_path=db_path)
