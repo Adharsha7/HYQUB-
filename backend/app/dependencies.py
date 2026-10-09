@@ -23,4 +23,6 @@ def current_user(authorization: Optional[str] = Header(None)) -> dict:
         "ml_dsa_public_key": user["ml_dsa_public_key"],
         "encrypted_secret_key": user["encrypted_secret_key"],
         "key_version": user.get("key_version", 1),
+        "password_hash": user.get("password_hash"),
+        "password_salt": user.get("password_salt"),
     }

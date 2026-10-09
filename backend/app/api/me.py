@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Response
 from app.dependencies import current_user
 from app.utils.blockchain import get_wallet_balance
-from app.services.auth_service import get_user_transactions
+from app.services import payment_store
 
 router = APIRouter(prefix="/me", tags=["me"])
 
@@ -25,9 +25,4 @@ def get_me(response: Response, user: dict = Depends(current_user)):
 @router.get("/history")
 def get_me_history(response: Response, user: dict = Depends(current_user)):
     _set_security_headers(response)
-    try:
-        txs = get_user_transactions(user["user_id"], limit=20)
-        return txs
-    except Exception as e:
-        # Handle gracefully if table doesn't exist
-        return []
+    return payment_store.get_history(user["user_id"])

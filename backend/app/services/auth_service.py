@@ -26,16 +26,20 @@ def _verify_password(password: str, stored_hash: str, stored_salt: str) -> bool:
     return computed_hash == stored_hash
 
 
-def get_db_connection(db_path: str = DEFAULT_DB_PATH) -> sqlite3.Connection:
+def get_db_connection(db_path: str | None = None) -> sqlite3.Connection:
+    if db_path is None:
+        db_path = DEFAULT_DB_PATH
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     return conn
 
 
-def init_db(db_path: str = DEFAULT_DB_PATH) -> None:
+def init_db(db_path: str | None = None) -> None:
     """
     Initialize users table and apply ALTER TABLE migrations if needed.
     """
+    if db_path is None:
+        db_path = DEFAULT_DB_PATH
     with get_db_connection(db_path) as conn:
         cursor = conn.cursor()
         cursor.execute("""
@@ -80,12 +84,14 @@ def init_db(db_path: str = DEFAULT_DB_PATH) -> None:
 def get_user_transactions(
     user_id: int,
     limit: int = 20,
-    db_path: str = DEFAULT_DB_PATH,
+    db_path: str | None = None,
 ) -> list[dict]:
     """
     Return the most-recent `limit` transactions for a user, newest first.
     Returns an empty list if the table does not yet have any rows.
     """
+    if db_path is None:
+        db_path = DEFAULT_DB_PATH
     init_db(db_path)
     with get_db_connection(db_path) as conn:
         cursor = conn.cursor()
@@ -103,7 +109,9 @@ def get_user_transactions(
     return [dict(row) for row in rows]
 
 
-def get_user_by_id(user_id: int, db_path: str = DEFAULT_DB_PATH) -> Optional[dict[str, Any]]:
+def get_user_by_id(user_id: int, db_path: str | None = None) -> Optional[dict[str, Any]]:
+    if db_path is None:
+        db_path = DEFAULT_DB_PATH
     init_db(db_path)
     with get_db_connection(db_path) as conn:
         cursor = conn.cursor()
@@ -112,7 +120,9 @@ def get_user_by_id(user_id: int, db_path: str = DEFAULT_DB_PATH) -> Optional[dic
         return dict(row) if row else None
 
 
-def get_user_by_username(username: str, db_path: str = DEFAULT_DB_PATH) -> Optional[dict[str, Any]]:
+def get_user_by_username(username: str, db_path: str | None = None) -> Optional[dict[str, Any]]:
+    if db_path is None:
+        db_path = DEFAULT_DB_PATH
     init_db(db_path)
     with get_db_connection(db_path) as conn:
         cursor = conn.cursor()
