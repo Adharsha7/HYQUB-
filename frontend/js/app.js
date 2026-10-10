@@ -1,427 +1,223 @@
 /**
- * HYQUB Payment App — UI wiring (v4 multi-wallet).
- *
- * This module contains NO fetch() calls. All API interactions go through
- * paymentFlow.js. Strings from backend/users rendered with textContent (not innerHTML).
- *
- * Multi-wallet model:
- *  - SENDER_WALLETS list is populated in config.local.js
- *  - Each sender has its own session key in devSigner.js
- *  - Switching senders updates the displayed wallet state
+ * HYQUB UI controller.
+ * Rules: no innerHTML (textContent only), no wallet addresses shown,
+ * token stays in api.js memory, amounts stay strings (never floats).
  */
+import * as api from './api.js';
+import { parseEthToWei } from './wei.js';
 
-import { SENDER_WALLETS, RECIPIENT_PRESETS, CHAIN_ID } from './config.js';
-import { getWalletState }  from './api.js';
-import { sessionStatus, anySessionActive } from './devSigner.js';
-import { runPayment, STEPS, PaymentError } from './paymentFlow.js';
-import { parseEthToWei, weiToEthString, compareWei } from './wei.js';
+const $ = (id) => document.getElementById(id);
+const screens = ['auth', 'home', 'pay', 'status'];
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+let signupMode = false;
+let currentUser = null;      // { id, name }
+let recipient = null;        // { id, name }
+let searchTimer = null;
 
-const $ = (s) => document.querySelector(s);
-const $$ = (s) => document.querySelectorAll(s);
+function show(name) {
+  for (const s of screens) $(`screen-${s}`).hidden = s !== name;
+}
+function setText(id, text) { $(id).textContent = text; }
+function clear(el) { while (el.firstChild) el.removeChild(el.firstChild); }
 
-const shortenAddr = (a) => (!a || a.length < 12) ? a : `${a.slice(0,8)}…${a.slice(-6)}`;
-
-const setText = (sel, val) => { const e = $(sel); if (e) e.textContent = val ?? ''; };
-const setHidden = (sel, h) => { const e = $(sel); if (e) e.hidden = h; };
-
-function makeCopyBtn(text) {
-  const b = document.createElement('button');
-  b.className = 'copy-btn';
-  b.textContent = 'Copy';
-  b.addEventListener('click', () => {
-    navigator.clipboard.writeText(text).catch(() => {});
-    b.textContent = 'Copied'; b.classList.add('copied');
-    setTimeout(() => { b.textContent = 'Copy'; b.classList.remove('copied'); }, 1800);
-  });
-  return b;
+// ---------- Auth ----------
+function setMode(signup) {
+  signupMode = signup;
+  setText('auth-title', signup ? 'Create account' : 'Log in');
+  setText('auth-submit', signup ? 'Create account' : 'Log in');
+  setText('auth-toggle-text', signup ? 'Already registered?' : 'New here?');
+  setText('auth-toggle', signup ? 'Log in' : 'Create an account');
+  $('auth-password').autocomplete = signup ? 'new-password' : 'current-password';
+  $('auth-hint').hidden = true;
+  setText('auth-error', '');
 }
 
-// ─── State ────────────────────────────────────────────────────────────────────
+$('auth-toggle').addEventListener('click', () => setMode(!signupMode));
 
-let selectedSenderIdx = 0;       // index into SENDER_WALLETS
-let sendTarget       = '';
-let sendValueWei     = '';
-let sendAmountEth    = '';
+$('auth-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const username = $('auth-username').value.trim();
+  const password = $('auth-password').value;
+  setText('auth-error', '');
 
-// Cache of wallet states { address → state }
-const walletStateCache = new Map();
-
-const sessionHistory = [];
-
-// ─── Session badge ────────────────────────────────────────────────────────────
-
-function updateSessionBadge() {
-  const badge = $('#session-badge');
-  if (!badge) return;
-  if (anySessionActive()) {
-    badge.textContent = 'Session: active';
-    badge.className = 'session-pill active';
-  } else {
-    badge.textContent = 'Session: not started';
-    badge.className = 'session-pill';
+  if (signupMode && password.length < 8) {
+    setText('auth-error', 'Use at least 8 characters for your password.');
+    return;
   }
-}
-setInterval(updateSessionBadge, 2000);
 
-// ─── Screen router ────────────────────────────────────────────────────────────
-
-function showScreen(id) {
-  $$('.screen').forEach(s => s.classList.remove('active'));
-  $$('.nav-btn').forEach(b => b.classList.remove('active'));
-  const s = document.getElementById('screen-' + id);
-  if (s) s.classList.add('active');
-  const nb = document.querySelector(`.nav-btn[data-screen="${id}"]`);
-  if (nb) nb.classList.add('active');
-}
-
-// ─── Wallet state loader ──────────────────────────────────────────────────────
-
-async function loadWalletState(address) {
+  const btn = $('auth-submit');
+  btn.disabled = true;
+  $('auth-hint').hidden = false;           // wallet setup can take a while
   try {
-    const state = await getWalletState(address);
-    walletStateCache.set(address.toLowerCase(), state);
-    return state;
-  } catch { return null; }
-}
-
-// ─── Dashboard sender dropdown ────────────────────────────────────────────────
-
-function initDashboardSenderDropdown() {
-  const sel = $('#dashboard-sender-sel');
-  if (!sel) return;
-  sel.innerHTML = '';
-  SENDER_WALLETS.forEach((w, i) => {
-    const o = document.createElement('option');
-    o.value = i;
-    o.textContent = `${w.label} — ${shortenAddr(w.address)}`;
-    sel.appendChild(o);
-  });
-  sel.value = selectedSenderIdx;
-  sel.addEventListener('change', () => {
-    selectedSenderIdx = parseInt(sel.value, 10);
-    loadDashboard();
-  });
-}
-
-async function loadDashboard() {
-  const wallet = SENDER_WALLETS[selectedSenderIdx];
-  if (!wallet) return;
-
-  // Sync dropdown
-  const sel = $('#dashboard-sender-sel');
-  if (sel) sel.value = selectedSenderIdx;
-
-  setText('#wallet-addr-short', shortenAddr(wallet.address));
-  setText('#wallet-label', wallet.label);
-  setText('#dashboard-status', 'Loading…');
-
-  // Copy button
-  const copyBtn = $('#wallet-copy-btn');
-  if (copyBtn) copyBtn.onclick = () => { navigator.clipboard.writeText(wallet.address).catch(() => {}); copyBtn.textContent = 'Copied'; setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1800); };
-
-  // Session status for this wallet
-  const sess = sessionStatus(wallet.address);
-  const sessEl = $('#wallet-session-status');
-  if (sessEl) {
-    sessEl.textContent = 'Session key: ' + sess;
-    sessEl.className = 'pill ' + (sess === 'active' ? 'green' : 'amber');
-  }
-
-  const state = await loadWalletState(wallet.address);
-  if (!state) {
-    setText('#dashboard-status', 'Could not load wallet state. Check Anvil and backend.');
-    setText('#balance-eth', '—');
-    setText('#balance-wei-detail', '');
-    return;
-  }
-
-  setText('#balance-eth',        weiToEthString(state.balance_wei));
-  setText('#balance-wei-detail', state.balance_wei + ' wei');
-  setText('#stat-network',       'Anvil Local');
-  setText('#stat-chain',         state.chain_id);
-  setText('#stat-block',         state.block_number);
-  setText('#stat-nonce',         state.nonce);
-  setText('#stat-keyver',        state.key_version);
-  setText('#stat-owner',         shortenAddr(state.owner));
-  setText('#dashboard-status',   '');
-
-  const regEl = $('#stat-registered');
-  if (regEl) {
-    regEl.innerHTML = '';
-    const p = document.createElement('span');
-    p.className = 'pill ' + (state.registered ? 'green' : 'red');
-    p.textContent = state.registered ? 'Registered' : 'Not registered';
-    regEl.appendChild(p);
-  }
-
-  renderHistory();
-}
-
-// ─── Send screen ──────────────────────────────────────────────────────────────
-
-function initSendScreen() {
-  // Sender dropdown
-  const fromSel = $('#from-sel');
-  if (fromSel) {
-    fromSel.innerHTML = '';
-    SENDER_WALLETS.forEach((w, i) => {
-      const o = document.createElement('option');
-      o.value = i;
-      o.textContent = `${w.label} — ${shortenAddr(w.address)}`;
-      fromSel.appendChild(o);
-    });
-    fromSel.value = selectedSenderIdx;
-    fromSel.addEventListener('change', () => {
-      selectedSenderIdx = parseInt(fromSel.value, 10);
-      refreshSenderDetail();
-    });
-  }
-
-  // Recipient dropdown
-  const toSel = $('#to-sel');
-  if (toSel) {
-    toSel.innerHTML = '';
-    const ph = document.createElement('option');
-    ph.value = ''; ph.textContent = 'Select a recipient…'; ph.disabled = true; ph.selected = true;
-    toSel.appendChild(ph);
-    RECIPIENT_PRESETS.forEach(p => {
-      const o = document.createElement('option');
-      o.value = p.address;
-      o.textContent = `${p.label} — ${shortenAddr(p.address)}`;
-      toSel.appendChild(o);
-    });
-    const custom = document.createElement('option');
-    custom.value = '__custom__'; custom.textContent = 'Custom address…';
-    toSel.appendChild(custom);
-
-    toSel.addEventListener('change', () => {
-      if (toSel.value === '__custom__') {
-        setHidden('#manual-group', false);
-        sendTarget = '';
-        $('#recipient-manual')?.focus();
-      } else {
-        setHidden('#manual-group', true);
-        sendTarget = toSel.value;
-      }
-      clearSendError();
-    });
-  }
-
-  $('#recipient-manual')?.addEventListener('input', e => {
-    sendTarget = e.target.value.trim();
-    clearSendError();
-  });
-
-  refreshSenderDetail();
-}
-
-async function refreshSenderDetail() {
-  const wallet = SENDER_WALLETS[selectedSenderIdx];
-  if (!wallet) return;
-
-  const fromSel = $('#from-sel');
-  if (fromSel) fromSel.value = selectedSenderIdx;
-
-  const detailEl = $('#sender-detail');
-  if (detailEl) {
-    const addrSpan = detailEl.querySelector('.sender-addr');
-    const balSpan  = detailEl.querySelector('.sender-bal');
-    if (addrSpan) addrSpan.textContent = wallet.address;
-    if (balSpan)  balSpan.textContent = 'Loading balance…';
-  }
-
-  const state = await loadWalletState(wallet.address);
-  if (state && detailEl) {
-    const balSpan = detailEl.querySelector('.sender-bal');
-    if (balSpan) balSpan.textContent = `Balance: ${weiToEthString(state.balance_wei)} ETH`;
-  }
-}
-
-function clearSendError() { setText('#send-error', ''); }
-
-$('#send-form')?.addEventListener('submit', e => { e.preventDefault(); handleSendReview(); });
-
-function handleSendReview() {
-  const amountRaw = ($('#amount-input')?.value ?? '').trim();
-  const sender = SENDER_WALLETS[selectedSenderIdx];
-
-  if (!sender) { setText('#send-error', 'No sender wallet selected.'); return; }
-
-  if (!/^0x[a-fA-F0-9]{40}$/.test(sendTarget)) {
-    setText('#send-error', 'Enter a valid recipient address (0x + 40 hex characters).');
-    return;
-  }
-
-  if (sender.address.toLowerCase() === sendTarget.toLowerCase()) {
-    setText('#send-error', 'Sender and recipient cannot be the same wallet.');
-    return;
-  }
-
-  let weiStr;
-  try { weiStr = parseEthToWei(amountRaw); }
-  catch (err) { setText('#send-error', err.message); return; }
-
-  const cachedState = walletStateCache.get(sender.address.toLowerCase());
-  if (cachedState && compareWei(weiStr, cachedState.balance_wei) > 0) {
-    setText('#send-error', `Insufficient balance. Available: ${weiToEthString(cachedState.balance_wei)} ETH`);
-    return;
-  }
-
-  sendValueWei  = weiStr;
-  sendAmountEth = amountRaw;
-
-  // Populate review
-  setText('#review-from',    `${sender.label} (${shortenAddr(sender.address)})`);
-  setText('#review-to',      sendTarget);
-  setText('#review-to-short', shortenAddr(sendTarget));
-  setText('#review-amount',  amountRaw + ' ETH');
-  setText('#review-network', `Anvil Local (chain ${CHAIN_ID})`);
-
-  clearSendError();
-  showScreen('review');
-}
-
-// ─── Review ───────────────────────────────────────────────────────────────────
-
-$('#btn-back-to-send')?.addEventListener('click', () => showScreen('send'));
-$('#btn-confirm-pay')?.addEventListener('click', handleConfirmPay);
-
-let paymentRunning = false;
-
-async function handleConfirmPay() {
-  if (paymentRunning) return;
-  paymentRunning = true;
-  const btn = $('#btn-confirm-pay');
-  if (btn) btn.disabled = true;
-
-  const sender = SENDER_WALLETS[selectedSenderIdx];
-  const startTime = new Date().toLocaleTimeString();
-
-  resetProgress();
-  showScreen('progress');
-
-  try {
-    const result = await runPayment(
-      { senderAddress: sender.address, target: sendTarget, valueWei: sendValueWei },
-      (stepIdx, label) => updateProgress(stepIdx, label)
-    );
-
-    addHistory({ status: 'success', time: startTime, sender: sender.address, target: result.target, amountEth: weiToEthString(result.valueWei), txHash: result.transactionHash });
-    showSuccessScreen(result, sender);
-    loadDashboard().catch(() => {});
-    walletStateCache.delete(sender.address.toLowerCase()); // invalidate
+    const data = signupMode ? await api.signup(username, password)
+                            : await api.login(username, password);
+    currentUser = { id: data.user_id, name: data.name };
+    $('auth-password').value = '';
+    await goHome();
   } catch (err) {
-    addHistory({ status: 'failed', time: startTime, sender: sender.address, target: sendTarget, amountEth: weiToEthString(sendValueWei), txHash: null });
-    showFailureScreen(err);
+    const msg = err.status === 409 ? 'That username is taken. Choose another one.'
+              : err.status === 429 ? 'Too many attempts. Wait a minute and try again.'
+              : err.message;
+    setText('auth-error', msg);
   } finally {
-    paymentRunning = false;
-    if (btn) btn.disabled = false;
+    btn.disabled = false;
+    $('auth-hint').hidden = true;
+  }
+});
+
+// Session expiry: go back to login with a clear message.
+api.setUnauthorizedHandler(() => {
+  currentUser = null;
+  setMode(false);
+  show('auth');
+  setText('auth-error', 'Your session expired. Log in again.');
+});
+
+$('btn-logout').addEventListener('click', async () => {
+  await api.logout();
+  currentUser = null;
+  setMode(false);
+  show('auth');
+});
+
+// ---------- Home ----------
+function fmtTime(ts) {
+  return new Date(ts * 1000).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+function historyItem(h) {
+  const item = document.createElement('details');
+  item.className = 'hist-item';
+
+  const sum = document.createElement('summary');
+  const left = document.createElement('span');
+  const sent = h.direction === 'sent';
+  left.textContent = `${sent ? 'Sent to' : 'Received from'} ${h.counterparty ?? 'unknown'}`;
+  const right = document.createElement('span');
+  right.textContent = `${sent ? '-' : '+'}${h.amount_eth} ETH`;
+  right.className = sent ? '' : 'ok';
+  sum.append(left, right);
+
+  const meta = document.createElement('div');
+  meta.className = 'muted';
+  meta.textContent = `${fmtTime(h.created_at)} · ${h.status}`;
+
+  const hash = document.createElement('div');
+  hash.className = 'hash mono';
+  hash.textContent = h.tx_hash ? `Transaction: ${h.tx_hash}` : '';
+
+  item.append(sum, meta, hash);
+  return item;
+}
+
+async function goHome() {
+  setText('home-greeting', `Hi, ${currentUser.name}`);
+  show('home');
+  await refreshHome();
+}
+
+async function refreshHome() {
+  try {
+    const [me, history] = await Promise.all([api.getMe(), api.getHistory()]);
+    setText('home-balance', me.balance_eth);
+    const list = $('home-history');
+    clear(list);
+    $('home-empty').hidden = history.length > 0;
+    for (const h of history) list.appendChild(historyItem(h));
+  } catch (err) {
+    if (err.status !== 401) setText('home-balance', '—');
   }
 }
 
-// ─── Progress ─────────────────────────────────────────────────────────────────
+$('btn-refresh').addEventListener('click', refreshHome);
+$('btn-go-pay').addEventListener('click', () => {
+  recipient = null;
+  $('pay-form').reset();
+  clear($('pay-results'));
+  setText('pay-selected', '');
+  setText('pay-error', '');
+  show('pay');
+});
 
-function resetProgress() {
-  const list = $('#step-list');
-  if (!list) return;
-  list.innerHTML = '';
-  STEPS.forEach((label, i) => {
-    const item = document.createElement('div');
-    item.className = 'step-item'; item.id = 'step-' + i;
-    const dot = document.createElement('div'); dot.className = 'step-dot'; dot.textContent = String(i + 1);
-    const txt = document.createElement('div'); txt.className = 'step-text'; txt.textContent = label;
-    item.append(dot, txt); list.appendChild(item);
-  });
+// ---------- Pay ----------
+$('btn-pay-back').addEventListener('click', () => show('home'));
+
+$('pay-search').addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  const q = $('pay-search').value.trim();
+  const box = $('pay-results');
+  if (!q) { clear(box); return; }
+  searchTimer = setTimeout(async () => {
+    try {
+      const users = await api.searchUsers(q);
+      clear(box);
+      if (users.length === 0) {
+        const none = document.createElement('div');
+        none.className = 'muted';
+        none.textContent = 'No one found with that name.';
+        box.appendChild(none);
+      }
+      for (const u of users) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'btn btn-secondary pick';
+        b.textContent = u.name;
+        b.addEventListener('click', () => {
+          recipient = { id: u.id, name: u.name };
+          setText('pay-selected', `Sending to ${u.name}`);
+          clear(box);
+          $('pay-search').value = '';
+        });
+        box.appendChild(b);
+      }
+    } catch { /* inline errors are shown on submit */ }
+  }, 250);
+});
+
+function showStatus(title, sub, { done = false, retry = false } = {}) {
+  setText('status-title', title);
+  setText('status-sub', sub);
+  $('status-done').hidden = !done;
+  $('status-retry').hidden = !retry;
+  show('status');
 }
 
-function updateProgress(stepIdx) {
-  for (let i = 0; i < stepIdx; i++) {
-    const item = document.getElementById('step-' + i);
-    if (item) { item.classList.remove('active'); item.classList.add('done'); item.querySelector('.step-dot').textContent = '✓'; }
+$('pay-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  setText('pay-error', '');
+
+  const amount = $('pay-amount').value.trim();
+  const password = $('pay-password').value;
+
+  if (!recipient) { setText('pay-error', 'Choose who to send to.'); return; }
+  try { parseEthToWei(amount); }                 // validation only; the string is what we send
+  catch { setText('pay-error', 'Enter an amount like 0.01 (up to 18 decimals).'); return; }
+  if (!password) { setText('pay-error', 'Enter your password to confirm.'); return; }
+
+  showStatus('Verifying...', 'Signing and checking your payment securely.');
+  try {
+    const r = await api.pay(recipient.id, amount, password);
+    $('pay-password').value = '';
+    showStatus('Payment successful', `${r.amount_eth} ETH sent to ${r.to}.`, { done: true });
+  } catch (err) {
+    $('pay-password').value = '';
+    const msg = {
+      WRONG_PASSWORD: 'Wrong password. Nothing was sent.',
+      INSUFFICIENT_BALANCE: 'Your balance is too low for this payment.',
+      LIMIT_EXCEEDED: err.message,
+      RATE_LIMITED: 'Too many payments. Wait a minute and try again.',
+      SELF_PAYMENT: 'You cannot send money to yourself.',
+      RECIPIENT_NOT_FOUND: 'That person was not found.',
+      INVALID_AMOUNT: err.message,
+    }[err.code] || 'Payment failed. Nothing was sent. Please try again.';
+    if (err.status === 401 && err.code !== 'WRONG_PASSWORD') return;  // session handler took over
+    showStatus('Payment not sent', msg, { retry: true });
   }
-  const cur = document.getElementById('step-' + stepIdx);
-  if (cur) { cur.classList.add('active'); cur.classList.remove('done'); }
-}
+});
 
-// ─── Success ──────────────────────────────────────────────────────────────────
+$('status-done').addEventListener('click', async () => { show('home'); await refreshHome(); });
+$('status-retry').addEventListener('click', () => show('pay'));
 
-function showSuccessScreen(result, sender) {
-  setText('#success-amount',  weiToEthString(result.valueWei) + ' ETH');
-  setText('#success-from',    `${sender.label} (${shortenAddr(sender.address)})`);
-  setText('#success-to',      result.target);
-  setText('#success-network', `Anvil Local (chain ${CHAIN_ID})`);
-  const hashEl = $('#success-tx-hash');
-  if (hashEl) hashEl.textContent = result.transactionHash;
-  const copyWrap = $('#success-hash-copy');
-  if (copyWrap) { copyWrap.innerHTML = ''; copyWrap.appendChild(makeCopyBtn(result.transactionHash)); }
-  showScreen('success');
-}
-
-$('#btn-success-done')?.addEventListener('click', () => { showScreen('dashboard'); loadDashboard().catch(() => {}); });
-$('#btn-success-another')?.addEventListener('click', () => showScreen('send'));
-
-// ─── Failure ──────────────────────────────────────────────────────────────────
-
-function showFailureScreen(err) {
-  const msgEl = $('#failure-message');
-  if (msgEl) {
-    msgEl.innerHTML = '';
-    const s = document.createElement('strong'); s.textContent = 'Payment Failed'; msgEl.appendChild(s);
-    const p = document.createElement('p');
-    p.textContent = err instanceof PaymentError ? err.message : 'An unexpected error occurred.';
-    msgEl.appendChild(p);
-  }
-  showScreen('failure');
-}
-
-$('#btn-try-again')?.addEventListener('click', () => showScreen('send'));
-$('#btn-failure-home')?.addEventListener('click', () => { showScreen('dashboard'); loadDashboard().catch(() => {}); });
-
-// ─── History ──────────────────────────────────────────────────────────────────
-
-function addHistory(entry) { sessionHistory.unshift(entry); renderHistory(); }
-
-function renderHistory() {
-  const tbody = $('#history-tbody');
-  const empty = $('#history-empty');
-  if (!tbody) return;
-  tbody.innerHTML = '';
-  if (!sessionHistory.length) { if (empty) empty.hidden = false; return; }
-  if (empty) empty.hidden = true;
-  for (const e of sessionHistory) {
-    const tr = document.createElement('tr');
-    const cells = [
-      (() => { const td = document.createElement('td'); const p = document.createElement('span'); p.className = 'pill ' + (e.status === 'success' ? 'green' : 'red'); p.textContent = e.status === 'success' ? 'Success' : 'Failed'; td.appendChild(p); return td; })(),
-      (() => { const td = document.createElement('td'); td.textContent = e.time; return td; })(),
-      (() => { const td = document.createElement('td'); const s = document.createElement('span'); s.className = 'mono'; s.textContent = shortenAddr(e.sender); s.title = e.sender; td.appendChild(s); return td; })(),
-      (() => { const td = document.createElement('td'); const s = document.createElement('span'); s.className = 'mono'; s.textContent = shortenAddr(e.target); s.title = e.target; td.appendChild(s); return td; })(),
-      (() => { const td = document.createElement('td'); td.textContent = e.amountEth + ' ETH'; return td; })(),
-      (() => { const td = document.createElement('td'); if (e.txHash) { const s = document.createElement('span'); s.className = 'mono'; s.textContent = shortenAddr(e.txHash); s.title = e.txHash; td.appendChild(s); } else td.textContent = '—'; return td; })(),
-    ];
-    cells.forEach(c => tr.appendChild(c));
-    tbody.appendChild(tr);
-  }
-}
-
-// ─── Nav ──────────────────────────────────────────────────────────────────────
-
-$$('.nav-btn').forEach(btn => btn.addEventListener('click', () => {
-  const t = btn.dataset.screen;
-  if (!t) return;
-  showScreen(t);
-  if (t === 'dashboard') loadDashboard().catch(() => {});
-  if (t === 'send') refreshSenderDetail().catch(() => {});
-}));
-
-$('#btn-refresh')?.addEventListener('click', () => loadDashboard().catch(() => {}));
-$('#btn-go-send')?.addEventListener('click', () => showScreen('send'));
-
-// ─── Boot ─────────────────────────────────────────────────────────────────────
-
-initDashboardSenderDropdown();
-initSendScreen();
-showScreen('dashboard');
-loadDashboard().catch(err => setText('#dashboard-status', 'Error: ' + err.message));
-updateSessionBadge();
+// ---------- Boot ----------
+setMode(false);
+show('auth');

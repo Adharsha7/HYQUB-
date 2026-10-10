@@ -3,231 +3,125 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HYQUB — Payment</title>
+  <title>HYQUB</title>
   <link rel="stylesheet" href="css/styles.css">
+  <style>
+    /* Small additions on top of styles.css. Existing classes are reused. */
+    body { display: block; }
+    .wrap { max-width: 440px; margin: 0 auto; padding: 20px 16px 48px; }
+    .wrap .card { margin-bottom: 14px; }
+    .wrap h1 { font-size: 20px; margin: 8px 0 16px; }
+    .wrap input { width: 100%; box-sizing: border-box; }
+    .row { display: flex; gap: 10px; align-items: center; justify-content: space-between; }
+    .link-btn { background: none; border: 0; color: inherit; text-decoration: underline; cursor: pointer; padding: 0; font: inherit; }
+    .pick { display: block; width: 100%; text-align: left; margin-top: 6px; }
+    .hist-item { padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.08); }
+    .hist-item:last-child { border-bottom: 0; }
+    .hist-item summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; gap: 8px; }
+    .hist-item .hash { word-break: break-all; font-size: 12px; margin-top: 6px; opacity: .7; }
+    .muted { opacity: .7; font-size: 13px; }
+    .ok { color: #3ecf8e; } .bad { color: #ff6b6b; }
+    /* Bug fix: styles.css input rule omits type=password; ensure password fields match text inputs */
+    input[type=password] {
+      width: 100%; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text); font-family: inherit;
+      font-size: 14px; padding: 10px 14px; outline: none; transition: border-color .15s;
+    }
+    input[type=password]:focus { border-color: var(--accent); }
+    [hidden] { display: none !important; }
+  </style>
 </head>
 <body>
-<div class="app-shell">
+<div class="wrap">
 
-  <!-- ── Top bar ── -->
-  <header class="topbar">
-    <div class="topbar-brand">
-      <div class="topbar-logo">HQ</div>
-      <span class="topbar-name">HYQUB</span>
+  <!-- Login / Sign up -->
+  <section id="screen-auth">
+    <h1>HYQUB</h1>
+    <div class="card">
+      <div id="auth-title" style="font-weight:600;margin-bottom:12px">Log in</div>
+      <div id="auth-error" class="field-error" role="alert"></div>
+      <form id="auth-form" autocomplete="off">
+        <div class="form-group">
+          <label for="auth-username">Username</label>
+          <input id="auth-username" type="text" autocomplete="username" required>
+        </div>
+        <div class="form-group">
+          <label for="auth-password">Password</label>
+          <input id="auth-password" type="password" autocomplete="current-password" required>
+        </div>
+        <button id="auth-submit" type="submit" class="btn btn-primary btn-full">Log in</button>
+      </form>
+      <p class="muted" style="margin-top:12px">
+        <span id="auth-toggle-text">New here?</span>
+        <button id="auth-toggle" type="button" class="link-btn">Create an account</button>
+      </p>
+      <p id="auth-hint" class="muted" hidden>Setting up your account can take up to 20 seconds.</p>
     </div>
-    <div class="topbar-right">
-      <span id="session-badge" class="session-pill">Session: not started</span>
+  </section>
+
+  <!-- Home -->
+  <section id="screen-home" hidden>
+    <div class="row">
+      <h1 id="home-greeting">Hi</h1>
+      <button id="btn-logout" class="btn btn-secondary btn-sm">Log out</button>
     </div>
-  </header>
-
-  <!-- ── Side nav ── -->
-  <nav class="sidenav">
-    <button class="nav-btn active" data-screen="dashboard">
-      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-        <rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/>
-        <rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/>
-      </svg>
-      Dashboard
-    </button>
-    <button class="nav-btn" data-screen="send">
-      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-        <path d="M2 8h12M10 4l4 4-4 4"/>
-      </svg>
-      Send
-    </button>
-  </nav>
-
-  <!-- ── Main ── -->
-  <main class="main-content">
-
-    <!-- ════ Dashboard ════ -->
-    <div id="screen-dashboard" class="screen active">
-      <div class="page-title">Dashboard</div>
-
-      <!-- Wallet selector -->
-      <div class="wallet-selector-bar">
-        <label for="dashboard-sender-sel">Viewing wallet:</label>
-        <select id="dashboard-sender-sel"></select>
+    <div class="balance-hero">
+      <div class="balance-label">Available balance</div>
+      <div><span class="balance-amount" id="home-balance">0</span> <span class="balance-unit">ETH</span></div>
+      <div class="balance-actions">
+        <button id="btn-go-pay" class="btn btn-primary">Send money</button>
+        <button id="btn-refresh" class="btn btn-secondary">Refresh</button>
       </div>
+    </div>
+    <div class="card">
+      <div style="font-weight:600;margin-bottom:6px">Recent activity</div>
+      <div id="home-empty" class="muted">No payments yet. Send your first one.</div>
+      <div id="home-history"></div>
+    </div>
+  </section>
 
-      <!-- Wallet identity -->
-      <div class="card" style="margin-bottom:14px">
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
-          <div>
-            <div class="label" style="margin-bottom:4px">Wallet</div>
-            <div style="font-weight:600;font-size:15px" id="wallet-label"></div>
-            <div class="address-display" style="margin-top:4px">
-              <span class="address-short mono" id="wallet-addr-short"></span>
-              <button class="copy-btn btn-sm" id="wallet-copy-btn">Copy</button>
-            </div>
+  <!-- Pay -->
+  <section id="screen-pay" hidden>
+    <div class="row">
+      <h1>Send money</h1>
+      <button id="btn-pay-back" class="btn btn-secondary btn-sm">Back</button>
+    </div>
+    <div class="card">
+      <div id="pay-error" class="field-error" role="alert"></div>
+      <form id="pay-form" autocomplete="off">
+        <div class="form-group">
+          <label for="pay-search">Send to</label>
+          <input id="pay-search" type="text" placeholder="Search by name" autocomplete="off">
+          <div id="pay-results"></div>
+          <div id="pay-selected" class="muted" style="margin-top:6px"></div>
+        </div>
+        <div class="form-group">
+          <label for="pay-amount">Amount</label>
+          <div class="input-suffix">
+            <input id="pay-amount" type="text" inputmode="decimal" placeholder="0.01" autocomplete="off">
+            <span class="input-suffix-label">ETH</span>
           </div>
-          <span id="wallet-session-status" class="pill amber">Session key: not started</span>
+          <div class="muted" style="margin-top:4px">Up to 0.5 ETH per payment and 1 ETH per day.</div>
         </div>
-      </div>
-
-      <!-- Balance hero -->
-      <div class="balance-hero">
-        <div class="balance-label">Available Balance</div>
-        <div>
-          <span class="balance-amount" id="balance-eth">—</span>
-          <span class="balance-unit">ETH</span>
+        <div class="form-group">
+          <label for="pay-password">Confirm with your password</label>
+          <input id="pay-password" type="password" autocomplete="current-password">
         </div>
-        <div class="balance-wei" id="balance-wei-detail"></div>
-        <div class="balance-actions">
-          <button class="btn btn-primary" id="btn-go-send">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 8h12M10 4l4 4-4 4"/></svg>
-            Send Payment
-          </button>
-          <button class="btn btn-secondary" id="btn-refresh">↻ Refresh</button>
-        </div>
-      </div>
-
-      <!-- Stats -->
-      <div class="stat-grid">
-        <div class="stat-card"><div class="stat-title">Network</div><div class="stat-value" id="stat-network">—</div></div>
-        <div class="stat-card"><div class="stat-title">Chain ID</div><div class="stat-value" id="stat-chain">—</div></div>
-        <div class="stat-card"><div class="stat-title">Block</div><div class="stat-value" id="stat-block">—</div></div>
-        <div class="stat-card"><div class="stat-title">Nonce</div><div class="stat-value" id="stat-nonce">—</div></div>
-        <div class="stat-card"><div class="stat-title">Key Version</div><div class="stat-value" id="stat-keyver">—</div></div>
-        <div class="stat-card"><div class="stat-title">Registered</div><div class="stat-value" id="stat-registered">—</div></div>
-        <div class="stat-card"><div class="stat-title">Owner</div><div class="stat-value mono" id="stat-owner">—</div></div>
-      </div>
-
-      <div id="dashboard-status" class="text-dim" style="margin-bottom:14px;font-size:13px"></div>
-
-      <!-- History -->
-      <div class="card">
-        <div class="label" style="margin-bottom:4px">Recent Activity</div>
-        <div class="history-note">This session only — not persisted.</div>
-        <div id="history-empty" class="history-empty">No payments this session yet.</div>
-        <div style="overflow-x:auto">
-          <table class="history-table">
-            <thead><tr><th>Status</th><th>Time</th><th>From</th><th>To</th><th>Amount</th><th>Tx Hash</th></tr></thead>
-            <tbody id="history-tbody"></tbody>
-          </table>
-        </div>
-      </div>
+        <button id="pay-submit" type="submit" class="btn btn-primary btn-full">Send</button>
+      </form>
     </div>
+  </section>
 
-    <!-- ════ Send ════ -->
-    <div id="screen-send" class="screen">
-      <div class="page-title">Send Payment</div>
-      <div class="card" style="max-width:540px">
-        <div id="send-error" class="field-error" style="margin-bottom:10px"></div>
-        <form id="send-form">
-          <!-- FROM -->
-          <div class="form-group">
-            <label for="from-sel">From</label>
-            <select id="from-sel"></select>
-            <div class="sender-detail" id="sender-detail">
-              <span class="sender-addr mono"></span>
-              <span class="sender-bal"></span>
-            </div>
-          </div>
-
-          <!-- TO -->
-          <div class="form-group">
-            <label for="to-sel">To</label>
-            <select id="to-sel"></select>
-          </div>
-
-          <!-- Manual recipient -->
-          <div class="form-group" id="manual-group" hidden>
-            <label for="recipient-manual">Custom recipient address</label>
-            <input type="text" id="recipient-manual" placeholder="0x…" autocomplete="off">
-          </div>
-
-          <!-- Amount -->
-          <div class="form-group">
-            <label for="amount-input">Amount</label>
-            <div class="input-suffix">
-              <input type="text" id="amount-input" placeholder="0.00" inputmode="decimal" autocomplete="off">
-              <span class="input-suffix-label">ETH</span>
-            </div>
-          </div>
-
-          <button type="submit" class="btn btn-primary btn-full">Review Payment →</button>
-        </form>
-      </div>
+  <!-- Status / result -->
+  <section id="screen-status" hidden>
+    <div class="card" style="text-align:center">
+      <div id="status-title" style="font-weight:600;font-size:18px;margin:8px 0"></div>
+      <div id="status-sub" class="muted" style="margin-bottom:16px"></div>
+      <button id="status-done" class="btn btn-primary" hidden>Done</button>
+      <button id="status-retry" class="btn btn-secondary" hidden>Try again</button>
     </div>
+  </section>
 
-    <!-- ════ Review ════ -->
-    <div id="screen-review" class="screen">
-      <div class="page-title">Review Payment</div>
-      <div class="card" style="max-width:540px">
-        <div class="review-row">
-          <span class="review-key">Amount</span>
-          <span class="review-val review-amount-big" id="review-amount">—</span>
-        </div>
-        <div class="review-row">
-          <span class="review-key">From</span>
-          <span class="review-val mono" id="review-from">—</span>
-        </div>
-        <div class="review-row">
-          <span class="review-key">To</span>
-          <span class="review-val mono" id="review-to-short">—</span>
-        </div>
-        <div class="review-row">
-          <span class="review-key">Network</span>
-          <span class="review-val" id="review-network">—</span>
-        </div>
-        <div class="review-row">
-          <span class="review-key">Protocol</span>
-          <span class="review-val text-dim">HYQUB ML-DSA · ERC-4337</span>
-        </div>
-        <div style="display:flex;gap:10px;margin-top:18px">
-          <button class="btn btn-secondary" id="btn-back-to-send">← Back</button>
-          <button class="btn btn-primary" style="flex:1" id="btn-confirm-pay">Confirm &amp; Pay</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ════ Progress ════ -->
-    <div id="screen-progress" class="screen">
-      <div class="progress-wrap">
-        <div class="progress-title">Processing Payment…</div>
-        <div class="step-list" id="step-list"></div>
-      </div>
-    </div>
-
-    <!-- ════ Success ════ -->
-    <div id="screen-success" class="screen">
-      <div class="result-wrap">
-        <div class="result-icon">✅</div>
-        <div class="result-title">Payment Successful</div>
-        <div class="result-sub">Transaction confirmed on Anvil chain.</div>
-        <div class="result-details">
-          <div class="review-row" style="padding:13px 16px"><span class="review-key">Amount</span><span class="review-val" id="success-amount">—</span></div>
-          <div class="review-row" style="padding:13px 16px"><span class="review-key">From</span><span class="review-val mono" id="success-from">—</span></div>
-          <div class="review-row" style="padding:13px 16px;border-bottom:none"><span class="review-key">To</span><span class="review-val mono" id="success-to">—</span></div>
-        </div>
-        <div class="tx-hash-row">
-          <div>
-            <div class="tx-hash-label">Transaction Hash</div>
-            <div class="tx-hash-val mono" id="success-tx-hash">—</div>
-          </div>
-          <div id="success-hash-copy"></div>
-        </div>
-        <div style="display:flex;gap:10px;justify-content:center">
-          <button class="btn btn-secondary" id="btn-success-another">Send Another</button>
-          <button class="btn btn-primary" id="btn-success-done">Done</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ════ Failure ════ -->
-    <div id="screen-failure" class="screen">
-      <div class="result-wrap">
-        <div class="result-icon">❌</div>
-        <div class="error-banner" id="failure-message"></div>
-        <div style="display:flex;gap:10px;justify-content:center">
-          <button class="btn btn-secondary" id="btn-failure-home">← Home</button>
-          <button class="btn btn-primary" id="btn-try-again">Try Again</button>
-        </div>
-      </div>
-    </div>
-
-  </main>
 </div>
 <script type="module" src="js/app.js"></script>
 </body>
