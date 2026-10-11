@@ -1,128 +1,131 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HYQUB</title>
-  <link rel="stylesheet" href="css/styles.css">
-  <style>
-    /* Small additions on top of styles.css. Existing classes are reused. */
-    body { display: block; }
-    .wrap { max-width: 440px; margin: 0 auto; padding: 20px 16px 48px; }
-    .wrap .card { margin-bottom: 14px; }
-    .wrap h1 { font-size: 20px; margin: 8px 0 16px; }
-    .wrap input { width: 100%; box-sizing: border-box; }
-    .row { display: flex; gap: 10px; align-items: center; justify-content: space-between; }
-    .link-btn { background: none; border: 0; color: inherit; text-decoration: underline; cursor: pointer; padding: 0; font: inherit; }
-    .pick { display: block; width: 100%; text-align: left; margin-top: 6px; }
-    .hist-item { padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.08); }
-    .hist-item:last-child { border-bottom: 0; }
-    .hist-item summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; gap: 8px; }
-    .hist-item .hash { word-break: break-all; font-size: 12px; margin-top: 6px; opacity: .7; }
-    .muted { opacity: .7; font-size: 13px; }
-    .ok { color: #3ecf8e; } .bad { color: #ff6b6b; }
-    /* Bug fix: styles.css input rule omits type=password; ensure password fields match text inputs */
-    input[type=password] {
-      width: 100%; background: var(--surface2); border: 1px solid var(--border);
-      border-radius: var(--radius-sm); color: var(--text); font-family: inherit;
-      font-size: 14px; padding: 10px 14px; outline: none; transition: border-color .15s;
-    }
-    input[type=password]:focus { border-color: var(--accent); }
-    [hidden] { display: none !important; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HYQUB</title>
+<style>
+:root{--bg:#0d0f16;--s1:#161925;--s2:#1e2232;--line:#2a2f45;--tx:#eef0f8;--dim:#8c93ad;
+--ac:#8b9cff;--ac2:#6677f0;--ok:#4fd69c;--bad:#ff7a7a;--r:18px;
+font-family:"Segoe UI",Inter,system-ui,sans-serif}
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;background:radial-gradient(900px 500px at 50% -10%,#232a52 0,var(--bg) 60%) fixed;color:var(--tx);min-height:100vh}
+.app{max-width:440px;margin:0 auto;padding:22px 18px 60px}
+h1,h2{margin:0;font-weight:650;letter-spacing:-.02em}
+button{font:inherit;color:inherit;cursor:pointer;border:0}
+button:focus-visible,input:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.dim{color:var(--dim);font-size:13px}.ok{color:var(--ok)}.bad{color:var(--bad)}
+.card{background:var(--s1);border:1px solid var(--line);border-radius:var(--r);padding:18px;margin-top:16px}
+.btn{background:var(--s2);border:1px solid var(--line);border-radius:14px;padding:12px 16px;font-weight:600;transition:transform .12s,background .2s}
+.btn:hover{background:#262b40}.btn:active{transform:scale(.97)}
+.btn.pri{background:linear-gradient(135deg,var(--ac),var(--ac2));border:0;color:#0b0e1c}
+.btn.pri:disabled{opacity:.5;cursor:wait}.btn.full{width:100%}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.av{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-weight:700;color:#0b0e1c;flex:none}
+.av.lg{width:56px;height:56px;font-size:22px}
+input{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:13px 14px;color:var(--tx);font:inherit}
+input:focus{border-color:var(--ac)}
+label{display:block;margin:14px 0 6px;font-size:13px;color:var(--dim)}
+.err{color:var(--bad);font-size:13px;min-height:18px;margin-bottom:6px}
+.tabs{display:flex;background:var(--bg);border-radius:14px;padding:4px;margin-bottom:6px}
+.tabs button{flex:1;padding:10px;border-radius:11px;background:none;color:var(--dim);font-weight:600}
+.tabs button.on{background:var(--s2);color:var(--tx)}
+.bal{background:linear-gradient(145deg,#2b3370,#171a2e);border-radius:24px;padding:22px;margin-top:18px;border:1px solid #3a4285}
+.bal .amt{font-size:42px;font-weight:700;letter-spacing:-.03em;margin:6px 0 2px}
+.acts{display:flex;gap:10px;margin-top:16px}.acts .btn{flex:1}
+.contacts{display:flex;gap:14px;overflow-x:auto;padding:4px 2px 8px;scrollbar-width:none}
+.contact{background:none;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12px;color:var(--dim);min-width:60px}
+.item{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.item:last-child{border:0}.item .mid{flex:1;min-width:0}.item .name{font-weight:600}
+.hash{display:none;word-break:break-all;font-size:11px;color:var(--dim);margin-top:4px}.item.open .hash{display:block}
+.skel{height:52px;border-radius:12px;margin:8px 0;background:linear-gradient(90deg,var(--s2),#2a3050,var(--s2));background-size:200% 100%;animation:sh 1.2s infinite}
+@keyframes sh{to{background-position:-200% 0}}
+.steps{display:flex;gap:6px;margin:14px 0 4px}.steps i{flex:1;height:4px;border-radius:2px;background:var(--line)}.steps i.on{background:var(--ac)}
+.big{font-size:44px;font-weight:700;text-align:center;background:none;border:0;padding:6px}
+.chips{display:flex;gap:8px;justify-content:center;margin:8px 0 16px}
+.chip{background:var(--s2);border-radius:20px;padding:7px 14px;font-size:13px}
+.sum{text-align:center;margin:8px 0 4px}
+.stat{text-align:center;padding:30px 10px}
+.ring{width:84px;height:84px;margin:0 auto 14px;border-radius:50%;display:grid;place-items:center;font-size:40px}
+.ring.spin{border:4px solid var(--line);border-top-color:var(--ac);animation:sp 1s linear infinite}
+.ring.good{background:rgba(79,214,156,.15);color:var(--ok);animation:pop .4s ease}
+.ring.fail{background:rgba(255,122,122,.15);color:var(--bad);animation:pop .4s ease}
+@keyframes sp{to{transform:rotate(360deg)}}@keyframes pop{from{transform:scale(.4);opacity:0}}
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--s2);border:1px solid var(--line);padding:11px 18px;border-radius:14px;opacity:0;pointer-events:none;transition:opacity .25s}
+#toast.on{opacity:1}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
 </head>
 <body>
-<div class="wrap">
+<div class="app">
 
-  <!-- Login / Sign up -->
-  <section id="screen-auth">
-    <h1>HYQUB</h1>
-    <div class="card">
-      <div id="auth-title" style="font-weight:600;margin-bottom:12px">Log in</div>
-      <div id="auth-error" class="field-error" role="alert"></div>
-      <form id="auth-form" autocomplete="off">
-        <div class="form-group">
-          <label for="auth-username">Username</label>
-          <input id="auth-username" type="text" autocomplete="username" required>
-        </div>
-        <div class="form-group">
-          <label for="auth-password">Password</label>
-          <input id="auth-password" type="password" autocomplete="current-password" required>
-        </div>
-        <button id="auth-submit" type="submit" class="btn btn-primary btn-full">Log in</button>
-      </form>
-      <p class="muted" style="margin-top:12px">
-        <span id="auth-toggle-text">New here?</span>
-        <button id="auth-toggle" type="button" class="link-btn">Create an account</button>
-      </p>
-      <p id="auth-hint" class="muted" hidden>Setting up your account can take up to 20 seconds.</p>
-    </div>
-  </section>
+<section id="screen-auth">
+  <div style="text-align:center;margin:36px 0 8px"><h1 style="font-size:32px">HYQUB</h1>
+  <div class="dim">Payments secured with post-quantum signatures</div></div>
+  <div class="card">
+    <div class="tabs"><button id="tab-login" class="on" type="button">Log in</button><button id="tab-signup" type="button">Sign up</button></div>
+    <form id="auth-form" autocomplete="off">
+      <label for="auth-username">Username</label><input id="auth-username" autocomplete="username" required>
+      <label for="auth-password">Password</label><input id="auth-password" type="password" autocomplete="current-password" required>
+      <div id="auth-error" class="err" role="alert" style="margin-top:10px"></div>
+      <button id="auth-submit" class="btn pri full" type="submit">Log in</button>
+    </form>
+    <p id="auth-hint" class="dim" hidden>Creating your secure wallet. This can take up to 20 seconds.</p>
+  </div>
+</section>
 
-  <!-- Home -->
-  <section id="screen-home" hidden>
-    <div class="row">
-      <h1 id="home-greeting">Hi</h1>
-      <button id="btn-logout" class="btn btn-secondary btn-sm">Log out</button>
-    </div>
-    <div class="balance-hero">
-      <div class="balance-label">Available balance</div>
-      <div><span class="balance-amount" id="home-balance">0</span> <span class="balance-unit">ETH</span></div>
-      <div class="balance-actions">
-        <button id="btn-go-pay" class="btn btn-primary">Send money</button>
-        <button id="btn-refresh" class="btn btn-secondary">Refresh</button>
-      </div>
-    </div>
-    <div class="card">
-      <div style="font-weight:600;margin-bottom:6px">Recent activity</div>
-      <div id="home-empty" class="muted">No payments yet. Send your first one.</div>
-      <div id="home-history"></div>
-    </div>
-  </section>
+<section id="screen-home" hidden>
+  <div class="row"><div class="row" style="justify-content:flex-start"><div id="home-av" class="av"></div>
+    <div><div class="dim">Welcome back</div><h2 id="home-name"></h2></div></div>
+    <button id="btn-logout" class="btn">Log out</button></div>
+  <div class="bal">
+    <div class="row"><span class="dim" style="color:#b9c1ff">Available balance</span><button id="btn-eye" class="btn" style="padding:6px 10px" aria-label="Show or hide balance">Hide</button></div>
+    <div class="amt"><span id="home-balance">0</span> <span style="font-size:18px">ETH</span></div>
+    <div class="acts"><button id="btn-go-pay" class="btn pri">Send money</button><button id="btn-refresh" class="btn">Refresh</button></div>
+  </div>
+  <div id="contacts-wrap" hidden><h2 style="font-size:16px;margin:22px 0 6px">Send again</h2><div id="contacts" class="contacts"></div></div>
+  <div class="card"><h2 style="font-size:16px">Activity</h2>
+    <div id="home-skel"><div class="skel"></div><div class="skel"></div></div>
+    <div id="home-empty" class="dim" style="padding:14px 0" hidden>No payments yet. Tap Send money to make your first one.</div>
+    <div id="home-history"></div></div>
+</section>
 
-  <!-- Pay -->
-  <section id="screen-pay" hidden>
-    <div class="row">
-      <h1>Send money</h1>
-      <button id="btn-pay-back" class="btn btn-secondary btn-sm">Back</button>
-    </div>
-    <div class="card">
-      <div id="pay-error" class="field-error" role="alert"></div>
-      <form id="pay-form" autocomplete="off">
-        <div class="form-group">
-          <label for="pay-search">Send to</label>
-          <input id="pay-search" type="text" placeholder="Search by name" autocomplete="off">
-          <div id="pay-results"></div>
-          <div id="pay-selected" class="muted" style="margin-top:6px"></div>
-        </div>
-        <div class="form-group">
-          <label for="pay-amount">Amount</label>
-          <div class="input-suffix">
-            <input id="pay-amount" type="text" inputmode="decimal" placeholder="0.01" autocomplete="off">
-            <span class="input-suffix-label">ETH</span>
-          </div>
-          <div class="muted" style="margin-top:4px">Up to 0.5 ETH per payment and 1 ETH per day.</div>
-        </div>
-        <div class="form-group">
-          <label for="pay-password">Confirm with your password</label>
-          <input id="pay-password" type="password" autocomplete="current-password">
-        </div>
-        <button id="pay-submit" type="submit" class="btn btn-primary btn-full">Send</button>
-      </form>
-    </div>
-  </section>
+<section id="screen-pay" hidden>
+  <div class="row"><button id="btn-pay-back" class="btn">Back</button><h2>Send money</h2><span style="width:64px"></span></div>
+  <div class="steps"><i id="st1" class="on"></i><i id="st2"></i><i id="st3"></i></div>
+  <div id="pay-error" class="err" role="alert"></div>
 
-  <!-- Status / result -->
-  <section id="screen-status" hidden>
-    <div class="card" style="text-align:center">
-      <div id="status-title" style="font-weight:600;font-size:18px;margin:8px 0"></div>
-      <div id="status-sub" class="muted" style="margin-bottom:16px"></div>
-      <button id="status-done" class="btn btn-primary" hidden>Done</button>
-      <button id="status-retry" class="btn btn-secondary" hidden>Try again</button>
-    </div>
-  </section>
+  <div id="pay-step-1" class="card" style="margin-top:6px">
+    <label for="pay-search" style="margin-top:0">Who are you sending to?</label>
+    <input id="pay-search" placeholder="Search by name" autocomplete="off">
+    <div id="pay-results" style="margin-top:8px"></div>
+  </div>
+
+  <div id="pay-step-2" class="card" style="margin-top:6px" hidden>
+    <div class="sum"><div id="p2-av" class="av lg" style="margin:0 auto 8px"></div><div class="dim">Sending to</div><h2 id="p2-name"></h2></div>
+    <input id="pay-amount" class="big" inputmode="decimal" placeholder="0.00" autocomplete="off" aria-label="Amount in ETH">
+    <div class="dim" style="text-align:center">ETH. Up to 0.5 per payment and 1 per day.</div>
+    <div class="chips"><button type="button" class="chip" data-amt="0.01">0.01</button><button type="button" class="chip" data-amt="0.05">0.05</button><button type="button" class="chip" data-amt="0.1">0.1</button></div>
+    <button id="p2-next" class="btn pri full">Continue</button>
+  </div>
+
+  <div id="pay-step-3" class="card" style="margin-top:6px" hidden>
+    <div class="sum"><div id="p3-av" class="av lg" style="margin:0 auto 8px"></div><div class="dim">You are sending</div>
+      <h2 id="p3-amt" style="font-size:32px"></h2><div class="dim">to <b id="p3-name"></b></div></div>
+    <label for="pay-password">Confirm with your password</label>
+    <input id="pay-password" type="password" autocomplete="current-password">
+    <button id="pay-submit" class="btn pri full" style="margin-top:16px">Confirm and send</button>
+  </div>
+</section>
+
+<section id="screen-status" hidden><div class="card stat">
+  <div id="status-ring" class="ring spin"></div><h2 id="status-title"></h2>
+  <p id="status-sub" class="dim"></p>
+  <button id="status-done" class="btn pri" hidden>Done</button><button id="status-retry" class="btn" hidden>Try again</button>
+</div></section>
 
 </div>
+<div id="toast" role="status"></div>
 <script type="module" src="js/app.js"></script>
 </body>
 </html>
