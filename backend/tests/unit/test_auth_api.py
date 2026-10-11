@@ -25,8 +25,16 @@ from fastapi.testclient import TestClient
 
 # The unit conftest patches Web3 before this import.
 from app.main import app
+from app.services import auth_service
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def setup_test_db(tmp_path, monkeypatch):
+    db_file = str(tmp_path / "test_auth.db")
+    monkeypatch.setattr(auth_service, "DEFAULT_DB_PATH", db_file)
+    auth_service.init_db(db_file)
 
 # ---------------------------------------------------------------------------
 # Shared dummy user dict returned by mocked signup / login

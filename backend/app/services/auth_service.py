@@ -78,6 +78,35 @@ def init_db(db_path: str | None = None) -> None:
             )
         """)
 
+        # Persistent sessions (store only sha256 hex, never raw token)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS sessions (
+                token_hash TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                expires_at INTEGER NOT NULL
+            )
+        """)
+
+        # Persistent login attempts / lockout
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS login_attempts (
+                username TEXT PRIMARY KEY,
+                failures INTEGER NOT NULL,
+                locked_until INTEGER NOT NULL
+            )
+        """)
+
+        # Persistent payment events for rate limiting (5 per 60s)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS pay_events (
+                user_id INTEGER NOT NULL,
+                ts INTEGER NOT NULL
+            )
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_pay_events_user_ts ON pay_events(user_id, ts)
+        """)
+
         conn.commit()
 
 

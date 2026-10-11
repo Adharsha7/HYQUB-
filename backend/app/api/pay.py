@@ -81,19 +81,29 @@ def pay(
     response.headers["Cache-Control"] = "no-store"
     response.headers["X-Content-Type-Options"] = "nosniff"
 
-    # a. Rate limit: 5 payments per 60s per user (in-memory deque) -> 429 RATE_LIMITED
-    now = time.time()
+    # a. Rate limit: 5 payments per 60s per user (pay_events table) -> 429 RATE_LIMITED
+    now = int(time.time())
     with _rate_limit_lock:
-        timestamps = _user_payment_timestamps[user["user_id"]]
-        while timestamps and timestamps[0] <= now - 60:
-            timestamps.popleft()
-        if len(timestamps) >= 5:
-            raise _http_error(
-                status.HTTP_429_TOO_MANY_REQUESTS,
-                "RATE_LIMITED",
-                "Payment rate limit exceeded. Please try again later.",
+        auth_service.init_db()
+        with auth_service.get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT COUNT(*) FROM pay_events WHERE user_id = ? AND ts > ?",
+                (user["user_id"], now - 60),
             )
-        timestamps.append(now)
+            count = cursor.fetchone()[0]
+            if count >= 5:
+                raise _http_error(
+                    status.HTTP_429_TOO_MANY_REQUESTS,
+                    "RATE_LIMITED",
+                    "Payment rate limit exceeded. Please try again later.",
+                )
+            cursor.execute("DELETE FROM pay_events WHERE ts < ?", (now - 3600,))
+            cursor.execute(
+                "INSERT INTO pay_events (user_id, ts) VALUES (?, ?)",
+                (user["user_id"], now),
+            )
+            conn.commit()
 
     # b. Parse amount with Decimal (no floats): finite, > 0, whole wei only, else 422 INVALID_AMOUNT
     try:
