@@ -4,14 +4,18 @@ HYQUB — POST /pay API Route
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
+import re
+import sqlite3
 import threading
 import time
 from collections import defaultdict, deque
 from decimal import Decimal
-from typing import Any
+from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
 from pydantic import BaseModel, ConfigDict
 from web3 import Web3
 
@@ -42,6 +46,8 @@ _rate_limit_lock = threading.Lock()
 _user_payment_timestamps: dict[int, deque[float]] = defaultdict(deque)
 
 _submission_lock = threading.Lock()
+from contextvars import ContextVar
+_current_idem: ContextVar[tuple[int, str] | None] = ContextVar("_current_idem", default=None)
 
 
 class PayRequest(BaseModel):
@@ -61,7 +67,24 @@ class _StorageAdapter:
         return self
 
 
+def _clear_idem(user_id: int, idem_key: Optional[str]) -> None:
+    if idem_key:
+        try:
+            with auth_service.get_db_connection() as conn:
+                conn.cursor().execute(
+                    "DELETE FROM idempotency_keys WHERE user_id = ? AND idem_key = ? AND status = 'in_progress'",
+                    (user_id, idem_key),
+                )
+                conn.commit()
+        except Exception:
+            pass
+
+
 def _http_error(status_code: int, code: str, message: str) -> HTTPException:
+    idem = _current_idem.get()
+    if idem:
+        _clear_idem(idem[0], idem[1])
+        _current_idem.set(None)
     return HTTPException(
         status_code=status_code,
         detail={"code": code, "message": message},
@@ -77,35 +100,12 @@ def pay(
     request: PayRequest,
     response: Response,
     user: dict = Depends(current_user),
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
 ) -> dict[str, Any]:
     response.headers["Cache-Control"] = "no-store"
     response.headers["X-Content-Type-Options"] = "nosniff"
 
-    # a. Rate limit: 5 payments per 60s per user (pay_events table) -> 429 RATE_LIMITED
-    now = int(time.time())
-    with _rate_limit_lock:
-        auth_service.init_db()
-        with auth_service.get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT COUNT(*) FROM pay_events WHERE user_id = ? AND ts > ?",
-                (user["user_id"], now - 60),
-            )
-            count = cursor.fetchone()[0]
-            if count >= 5:
-                raise _http_error(
-                    status.HTTP_429_TOO_MANY_REQUESTS,
-                    "RATE_LIMITED",
-                    "Payment rate limit exceeded. Please try again later.",
-                )
-            cursor.execute("DELETE FROM pay_events WHERE ts < ?", (now - 3600,))
-            cursor.execute(
-                "INSERT INTO pay_events (user_id, ts) VALUES (?, ?)",
-                (user["user_id"], now),
-            )
-            conn.commit()
-
-    # b. Parse amount with Decimal (no floats): finite, > 0, whole wei only, else 422 INVALID_AMOUNT
+    # a. Parse amount with Decimal (no floats): finite, > 0, whole wei only, else 422 INVALID_AMOUNT
     try:
         d_amount = Decimal(str(request.amount_eth))
     except Exception:
@@ -137,6 +137,69 @@ def pay(
             "INVALID_AMOUNT",
             "Invalid payment amount.",
         )
+
+    # b. Idempotency check (after auth and amount parsing, before rate limit event)
+    if idempotency_key is not None:
+        if not re.match(r"^[A-Za-z0-9_-]{8,64}$", idempotency_key):
+            raise _http_error(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "INVALID_IDEMPOTENCY_KEY",
+                "Invalid Idempotency-Key header.",
+            )
+        req_hash = hashlib.sha256(f"{request.to_user_id}:{amount_wei}".encode("utf-8")).hexdigest()
+        now_ts = int(time.time())
+        auth_service.init_db()
+        with auth_service.get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT status, request_hash, response_json FROM idempotency_keys WHERE user_id = ? AND idem_key = ?",
+                (user["user_id"], idempotency_key),
+            )
+            row = cursor.fetchone()
+            if row:
+                if row["status"] == "in_progress":
+                    raise _http_error(status.HTTP_409_CONFLICT, "IN_PROGRESS", "Payment is already in progress.")
+                if row["request_hash"] != req_hash:
+                    raise _http_error(
+                        status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        "IDEMPOTENCY_MISMATCH",
+                        "Idempotency key was used with different request parameters.",
+                    )
+                return json.loads(row["response_json"])
+            cursor.execute("DELETE FROM idempotency_keys WHERE created_at < ?", (now_ts - 86400,))
+            try:
+                cursor.execute(
+                    "INSERT INTO idempotency_keys (user_id, idem_key, request_hash, status, created_at) VALUES (?, ?, ?, 'in_progress', ?)",
+                    (user["user_id"], idempotency_key, req_hash, now_ts),
+                )
+                conn.commit()
+                _current_idem.set((user["user_id"], idempotency_key))
+            except sqlite3.IntegrityError:
+                raise _http_error(status.HTTP_409_CONFLICT, "IN_PROGRESS", "Payment is already in progress.")
+
+    # c. Rate limit: 5 payments per 60s per user (pay_events table) -> 429 RATE_LIMITED
+    now = int(time.time())
+    with _rate_limit_lock:
+        auth_service.init_db()
+        with auth_service.get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT COUNT(*) FROM pay_events WHERE user_id = ? AND ts > ?",
+                (user["user_id"], now - 60),
+            )
+            count = cursor.fetchone()[0]
+            if count >= 5:
+                raise _http_error(
+                    status.HTTP_429_TOO_MANY_REQUESTS,
+                    "RATE_LIMITED",
+                    "Payment rate limit exceeded. Please try again later.",
+                )
+            cursor.execute("DELETE FROM pay_events WHERE ts < ?", (now - 3600,))
+            cursor.execute(
+                "INSERT INTO pay_events (user_id, ts) VALUES (?, ?)",
+                (user["user_id"], now),
+            )
+            conn.commit()
 
     # c. to_user_id == sender -> 400 SELF_PAYMENT
     if request.to_user_id == user["user_id"]:
@@ -280,9 +343,20 @@ def pay(
         tx_hash=tx_hash,
     )
 
-    return {
+    resp_data = {
         "status": "success",
         "to": recipient["username"],
         "amount_eth": _format_amount_eth(amount_wei),
         "tx_hash": tx_hash,
     }
+
+    if idempotency_key:
+        with auth_service.get_db_connection() as conn:
+            conn.cursor().execute(
+                "UPDATE idempotency_keys SET status = 'done', response_json = ? WHERE user_id = ? AND idem_key = ?",
+                (json.dumps(resp_data), user["user_id"], idempotency_key),
+            )
+            conn.commit()
+        _current_idem.set(None)
+
+    return resp_data

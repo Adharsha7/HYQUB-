@@ -19,8 +19,8 @@ export class ApiError extends Error {
   }
 }
 
-async function request(method, path, body, { auth = true } = {}) {
-  const headers = { 'Content-Type': 'application/json' };
+async function request(method, path, body, { auth = true, headers: extraHeaders = {} } = {}) {
+  const headers = { 'Content-Type': 'application/json', ...extraHeaders };
   if (auth && token) headers.Authorization = `Bearer ${token}`;
 
   let res;
@@ -68,5 +68,7 @@ export async function logout() {
 export const getMe       = () => request('GET', '/me');
 export const getHistory  = () => request('GET', '/me/history');
 export const searchUsers = (q) => request('GET', `/users/search?q=${encodeURIComponent(q)}`);
-export const pay = (toUserId, amountEth, password) =>
-  request('POST', '/pay', { to_user_id: toUserId, amount_eth: amountEth, password });
+export const pay = (toUserId, amountEth, password, idemKey) =>
+  request('POST', '/pay', { to_user_id: toUserId, amount_eth: amountEth, password }, {
+    headers: idemKey ? { 'Idempotency-Key': idemKey } : {},
+  });

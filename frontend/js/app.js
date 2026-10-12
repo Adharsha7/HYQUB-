@@ -4,7 +4,7 @@ import { parseEthToWei } from './wei.js';
 
 const $ = (id) => document.getElementById(id);
 const SCREENS = ['auth', 'home', 'pay', 'status'];
-let signup = false, user = null, to = null, amount = '', timer = null, hidden = false, balance = '0';
+let signup = false, user = null, to = null, amount = '', timer = null, hidden = false, balance = '0', idemKey = null;
 
 const show = (n) => SCREENS.forEach((s) => ($(`screen-${s}`).hidden = s !== n));
 const txt = (id, t) => ($(id).textContent = t);
@@ -96,12 +96,12 @@ function step(n) {
   [1, 2, 3].forEach((i) => { $(`pay-step-${i}`).hidden = i !== n; $(`st${i}`).classList.toggle('on', i <= n); });
   txt('pay-error', '');
 }
-function openPay() { to = null; amount = ''; $('pay-search').value = ''; $('pay-amount').value = ''; $('pay-password').value = ''; clear($('pay-results')); step(1); show('pay'); $('pay-search').focus(); }
+function openPay() { to = null; amount = ''; idemKey = null; $('pay-search').value = ''; $('pay-amount').value = ''; $('pay-password').value = ''; clear($('pay-results')); step(1); show('pay'); $('pay-search').focus(); }
 $('btn-go-pay').onclick = openPay;
 $('btn-pay-back').onclick = () => { const s = [1, 2, 3].find((i) => !$(`pay-step-${i}`).hidden); s > 1 ? step(s - 1) : show('home'); };
 
 function choose(u) {
-  to = u; paintAvatar($('p2-av'), u.name); txt('p2-name', u.name); step(2); $('pay-amount').focus();
+  to = u; idemKey = null; paintAvatar($('p2-av'), u.name); txt('p2-name', u.name); step(2); $('pay-amount').focus();
 }
 async function quickPick(name) {
   openPay();
@@ -128,7 +128,7 @@ document.querySelectorAll('.chip').forEach((c) => (c.onclick = () => ($('pay-amo
 $('p2-next').onclick = () => {
   const a = $('pay-amount').value.trim();
   try { parseEthToWei(a); } catch { return txt('pay-error', 'Enter an amount like 0.01.'); }
-  amount = a; txt('p3-amt', `${a} ETH`); txt('p3-name', to.name); paintAvatar($('p3-av'), to.name); step(3); $('pay-password').focus();
+  amount = a; idemKey = crypto.randomUUID(); txt('p3-amt', `${a} ETH`); txt('p3-name', to.name); paintAvatar($('p3-av'), to.name); step(3); $('pay-password').focus();
 };
 
 function status(kind, title, sub, done, retry) {
@@ -141,9 +141,11 @@ function status(kind, title, sub, done, retry) {
 $('pay-submit').onclick = async () => {
   const pw = $('pay-password').value;
   if (!pw) return txt('pay-error', 'Enter your password to confirm.');
+  const btn = $('pay-submit');
+  btn.disabled = true;
   status('spin', 'Verifying...', 'Signing and checking your payment securely.');
   try {
-    const r = await api.pay(to.id, amount, pw);
+    const r = await api.pay(to.id, amount, pw, idemKey);
     status('good', 'Payment sent', `${r.amount_eth} ETH sent to ${r.to}.`, true, false);
   } catch (err) {
     if (err.status === 401 && err.code !== 'WRONG_PASSWORD') return;
@@ -152,7 +154,10 @@ $('pay-submit').onclick = async () => {
       SELF_PAYMENT: 'You cannot send money to yourself.', RECIPIENT_NOT_FOUND: 'That person was not found.', INVALID_AMOUNT: err.message }[err.code]
       || 'Payment failed. Nothing was sent. Please try again.';
     status('fail', 'Payment not sent', m, false, true);
-  } finally { $('pay-password').value = ''; }
+  } finally {
+    btn.disabled = false;
+    $('pay-password').value = '';
+  }
 };
 $('status-done').onclick = async () => { show('home'); await refreshHome(); };
 $('status-retry').onclick = () => { show('pay'); step(3); $('pay-password').focus(); };

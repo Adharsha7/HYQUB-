@@ -107,6 +107,19 @@ def init_db(db_path: str | None = None) -> None:
             CREATE INDEX IF NOT EXISTS idx_pay_events_user_ts ON pay_events(user_id, ts)
         """)
 
+        # Idempotency keys for POST /pay
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS idempotency_keys (
+                user_id INTEGER NOT NULL,
+                idem_key TEXT NOT NULL,
+                request_hash TEXT NOT NULL,
+                status TEXT NOT NULL,
+                response_json TEXT,
+                created_at INTEGER NOT NULL,
+                PRIMARY KEY(user_id, idem_key)
+            )
+        """)
+
         conn.commit()
 
 
