@@ -238,7 +238,8 @@ HYQUB is a working prototype on a local Anvil chain. It is **not audited and not
 - **Single approval signer:** on-chain trust rests on one classical ECDSA key. If it leaks, the off-chain ML-DSA checks can be bypassed.
 - **Custodial signing:** the user's password reaches the server and decrypts the ML-DSA secret key in memory for each payment. The key is never stored in plaintext, but the server can see it while signing. Private keys do not stay in the browser.
 - **Owner bypass:** `HYQUBWallet.execute()` can still be called directly by the wallet owner (Anvil account 0) without any ML-DSA signature or approval token.
-- **Shared wallet:** all demo users currently transact through the same deployed smart wallet.
+- **On-chain step is classical:** ML-DSA is verified off-chain only. The on-chain check uses ECDSA, so this project does not claim post-quantum security for the on-chain step.
+- **Dev endpoints:** /dev/sign and /dev/generate-keypair only start when HYQUB_ENABLE_DEV_TOOLS=true and the chain id is 31337. The app refuses to start with dev tools on any other chain. Turn them off for demos. Never commit .env.
 - **Single password:** login password is also the payment password.
 
 **Controls in place**
