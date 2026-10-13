@@ -369,8 +369,16 @@ async function goHome() {
 
   const chartEl = $('price-chart');
   if (chartEl && !chartRendered && typeof window.renderPriceChart === 'function') {
+    // Render mock immediately so the chart is never blank
     window.renderPriceChart(chartEl, { base: DEMO_RATE_USD });
     chartRendered = true;
+  }
+
+  // Fetch live market data once per Home visit (background, non-blocking)
+  if (chartEl && typeof window.updatePriceChart === 'function') {
+    api.getMarket().then((data) => {
+      window.updatePriceChart(chartEl, data);
+    }).catch(() => { /* silently fall back to mock chart */ });
   }
 
   await refreshHome();

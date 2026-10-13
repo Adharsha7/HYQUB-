@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import auth
 from app.api import health
+from app.api import market
 from app.api import me
 from app.api import pay
 from app.api import submit_transaction
@@ -81,6 +82,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(auth.router)
+    app.include_router(market.router)
     app.include_router(me.router)
     app.include_router(users.router)
     app.include_router(verify.router)

@@ -1,6 +1,6 @@
 /**
  * HYQUB API client. The session token lives in this module's memory only:
- * never localStorage, sessionStorage or cookies. A page reload logs the user out.
+ * never persistent web storage or cookies. A page reload logs the user out.
  */
 import { API_BASE_URL } from './config.js';
 
@@ -72,3 +72,6 @@ export const pay = (toUserId, amountEth, password, idemKey) =>
   request('POST', '/pay', { to_user_id: toUserId, amount_eth: amountEth, password }, {
     headers: idemKey ? { 'Idempotency-Key': idemKey } : {},
   });
+
+/** Fetch ETH market data from the backend. */
+export const getMarket = () => request('GET', '/market/eth');
