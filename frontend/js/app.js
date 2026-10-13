@@ -11,7 +11,8 @@ const $ = (id) => document.getElementById(id);
 const SCREENS = ['auth', 'home', 'pay', 'receive', 'status'];
 let signup = false, user = null, to = null, amount = '', timer = null, hidden = false, balance = '0', idemKey = null;
 let currentFilter = 'all', currentHistory = [], lastReceipt = null, keypadAmount = '', currentTheme = 'dark';
-let activeSheetHash = '';
+let activeSheetHash = '', chartRendered = false;
+let sessionInterval = null, sessionRemaining = 1800; // 30 minutes
 
 const show = (n) => {
   SCREENS.forEach((s) => ($(`screen-${s}`).hidden = s !== n));
@@ -28,6 +29,7 @@ function el(tag, cls, text) {
 
 function toast(msg) {
   const t = $('toast');
+  if (!t) return;
   t.textContent = msg;
   t.classList.add('on');
   setTimeout(() => t.classList.remove('on'), 2200);
@@ -51,6 +53,50 @@ function avatar(name, lg) {
   const a = el('div', lg ? 'av lg' : 'av');
   paintAvatar(a, name);
   return a;
+}
+
+// ---------- Session Countdown (Part D) ----------
+function updateSessionDisplay() {
+  const timerEl = $('session-timer');
+  if (!timerEl) return;
+  const m = Math.floor(sessionRemaining / 60);
+  const s = sessionRemaining % 60;
+  const mm = m.toString().padStart(2, '0');
+  const ss = s.toString().padStart(2, '0');
+  timerEl.textContent = `Session ends in ${mm}:${ss}`;
+  timerEl.classList.toggle('warn', sessionRemaining < 300);
+}
+
+function startSessionTimer() {
+  clearInterval(sessionInterval);
+  sessionRemaining = 1800;
+  const timerEl = $('session-timer');
+  if (timerEl) {
+    timerEl.hidden = false;
+    timerEl.classList.remove('warn');
+  }
+  updateSessionDisplay();
+  sessionInterval = setInterval(() => {
+    sessionRemaining--;
+    if (sessionRemaining <= 0) {
+      clearInterval(sessionInterval);
+      sessionInterval = null;
+      if (timerEl) timerEl.hidden = true;
+      user = null;
+      setMode(false);
+      show('auth');
+      txt('auth-error', 'Your session expired. Log in again.');
+      return;
+    }
+    updateSessionDisplay();
+  }, 1000);
+}
+
+function clearSessionTimer() {
+  clearInterval(sessionInterval);
+  sessionInterval = null;
+  const timerEl = $('session-timer');
+  if (timerEl) timerEl.hidden = true;
 }
 
 // ---------- Theme Toggle (In-Memory Only) ----------
@@ -108,6 +154,7 @@ $('auth-form').addEventListener('submit', async (e) => {
     const d = signup ? await api.signup(u, p) : await api.login(u, p);
     user = { id: d.user_id, name: d.name };
     $('auth-password').value = '';
+    startSessionTimer();
     await goHome();
   } catch (err) {
     triggerShake($('auth-card'));
@@ -121,12 +168,14 @@ $('auth-form').addEventListener('submit', async (e) => {
 });
 
 api.setUnauthorizedHandler(() => {
+  clearSessionTimer();
   user = null;
   setMode(false);
   show('auth');
   txt('auth-error', 'Your session expired. Log in again.');
 });
 $('btn-logout').onclick = async () => {
+  clearSessionTimer();
   await api.logout();
   user = null;
   setMode(false);
@@ -218,10 +267,10 @@ function closeSheet() {
 $('sheet-backdrop').onclick = closeSheet;
 $('btn-close-sheet').onclick = closeSheet;
 $('btn-copy-tx').onclick = async () => {
-  if (!activeSheetHash) return toast('No transaction hash');
+  if (!activeSheetHash) return;
   try {
     await navigator.clipboard.writeText(activeSheetHash);
-    toast('Transaction hash copied');
+    toast('Copied');
   } catch {
     toast('Clipboard unavailable');
   }
@@ -317,6 +366,13 @@ async function goHome() {
   txt('home-name', user.name);
   paintAvatar($('home-av'), user.name);
   show('home');
+
+  const chartEl = $('price-chart');
+  if (chartEl && !chartRendered && typeof window.renderPriceChart === 'function') {
+    window.renderPriceChart(chartEl, { base: DEMO_RATE_USD });
+    chartRendered = true;
+  }
+
   await refreshHome();
 }
 
@@ -389,7 +445,7 @@ $('btn-copy-username').onclick = async () => {
   if (!user) return;
   try {
     await navigator.clipboard.writeText(user.name);
-    toast('Username copied');
+    toast('Copied');
   } catch {
     toast('Clipboard unavailable');
   }
@@ -550,6 +606,8 @@ $('pay-submit').onclick = async () => {
   btn.disabled = true;
   $('status-receipt').hidden = true;
   $('status-copy').hidden = true;
+  const tl = $('status-timeline');
+  if (tl) tl.hidden = true;
   status('spin', 'Verifying...', 'Signing and checking your payment securely.');
   try {
     const r = await api.pay(to.id, amount, pw, idemKey);
@@ -559,9 +617,14 @@ $('pay-submit').onclick = async () => {
     txt('rec-tx', r.tx_hash || 'Confirmed on-chain');
     $('status-receipt').hidden = false;
     $('status-copy').hidden = false;
+    if (tl) tl.hidden = false;
     status('good', 'Payment sent', `${r.amount_eth} ETH sent to ${r.to}.`, true, false);
   } catch (err) {
+    if (tl) tl.hidden = true;
     if (err.status === 401 && err.code !== 'WRONG_PASSWORD') return;
+    if (err.code === 'WRONG_PASSWORD') {
+      toast('Wrong password. Nothing was sent.');
+    }
     const m = {
       WRONG_PASSWORD: 'Wrong password. Nothing was sent.',
       INSUFFICIENT_BALANCE: 'Your balance is too low for this payment.',
@@ -579,10 +642,14 @@ $('pay-submit').onclick = async () => {
 };
 
 $('status-done').onclick = async () => {
+  const tl = $('status-timeline');
+  if (tl) tl.hidden = true;
   show('home');
   await refreshHome();
 };
 $('status-retry').onclick = () => {
+  const tl = $('status-timeline');
+  if (tl) tl.hidden = true;
   show('pay');
   step(3);
   $('pay-password').focus();

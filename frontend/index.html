@@ -19,6 +19,11 @@
   --warn: #ffd166;
   --r: 18px;
   --bal-dim: #b9c1ff;
+  --card: var(--s1);
+  --card2: var(--s2);
+  --text: var(--tx);
+  --muted: var(--dim);
+  --accent: var(--s2);
   --font: "Segoe UI", Inter, system-ui, sans-serif;
 }
 [data-theme="light"] {
@@ -34,6 +39,11 @@
   --bad: #d94141;
   --warn: #b8860b;
   --bal-dim: #d8e1ff;
+  --card: var(--s1);
+  --card2: var(--s2);
+  --text: var(--tx);
+  --muted: var(--dim);
+  --accent: var(--s2);
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
@@ -48,9 +58,17 @@ body {
   background: radial-gradient(900px 500px at 50% -10%, #d8e1ff 0, var(--bg) 60%) fixed;
 }
 .app {
-  max-width: 440px;
+  max-width: 1040px;
   margin: 0 auto;
   padding: 16px 16px 84px;
+}
+@media (max-width: 900px) {
+  .app { max-width: 440px; }
+  .dashboard-grid > * { grid-column: span 12 !important; }
+}
+#screen-auth, #screen-pay, #screen-receive, #screen-status {
+  max-width: 440px;
+  margin: 0 auto;
 }
 h1, h2, h3 { margin: 0; font-weight: 650; letter-spacing: -0.02em; }
 button { font: inherit; color: inherit; cursor: pointer; border: 0; }
@@ -78,10 +96,20 @@ label { display: block; margin: 14px 0 6px; font-size: 13px; color: var(--dim); 
 .tabs button.on { background: var(--s2); color: var(--tx); }
 
 /* Header & Theme */
-.app-header { display: flex; align-items: center; justify-content: space-between; padding: 4px 2px 14px; }
+.app-header { display: flex; align-items: center; justify-content: space-between; padding: 4px 2px 14px; gap: 10px; }
 .header-brand { display: flex; align-items: center; gap: 8px; font-weight: 700; letter-spacing: -0.02em; font-size: 18px; }
 .logo-badge { width: 26px; height: 26px; border-radius: 8px; background: linear-gradient(135deg, var(--ac), var(--ac2)); color: #0b0e1c; display: grid; place-items: center; font-size: 12px; font-weight: 800; }
+.header-right { display: flex; align-items: center; gap: 10px; }
+.session-timer { font-size: 12px; font-weight: 600; color: var(--dim); padding: 5px 12px; border-radius: 20px; background: var(--s2); border: 1px solid var(--line); }
+.session-timer.warn { color: var(--warn); border-color: rgba(255, 209, 102, 0.45); }
 .icon-btn { width: 36px; height: 36px; padding: 0; border-radius: 50%; display: grid; place-items: center; font-size: 16px; }
+
+/* Dashboard Grid */
+.dashboard-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; }
+.span-4 { grid-column: span 4; }
+.span-6 { grid-column: span 6; }
+.span-8 { grid-column: span 8; }
+.span-12 { grid-column: span 12; }
 
 /* Wallet Card */
 .bal { background: linear-gradient(145deg, #272f66, #14172a); border-radius: 24px; padding: 22px; margin-top: 14px; border: 1px solid #3a4387; box-shadow: 0 12px 30px rgba(0,0,0,0.25); }
@@ -108,6 +136,7 @@ label { display: block; margin: 14px 0 6px; font-size: 13px; color: var(--dim); 
 .progress-fill { height: 100%; background: linear-gradient(90deg, var(--ac), var(--ok)); border-radius: 4px; transition: width .4s ease; }
 
 /* Activity & Groups */
+.activity-card { margin-top: 16px; padding: 16px 18px; }
 .activity-header { display: flex; flex-direction: column; gap: 10px; margin-bottom: 4px; }
 .act-tabs { display: flex; gap: 4px; background: var(--bg); border-radius: 12px; padding: 3px; }
 .act-tabs button { flex: 1; padding: 6px 4px; font-size: 12px; border-radius: 9px; background: none; color: var(--dim); font-weight: 600; }
@@ -151,7 +180,7 @@ label { display: block; margin: 14px 0 6px; font-size: 13px; color: var(--dim); 
 .key.key-back { font-size: 16px; color: var(--dim); }
 .sum { text-align: center; margin: 8px 0 4px; }
 
-/* Status Screen & Receipt */
+/* Status Screen, Timeline & Receipt */
 .stat { text-align: center; padding: 26px 12px; }
 .ring { width: 84px; height: 84px; margin: 0 auto 14px; border-radius: 50%; display: grid; place-items: center; font-size: 40px; }
 .ring.spin { border: 4px solid var(--line); border-top-color: var(--ac); animation: sp 1s linear infinite; }
@@ -160,6 +189,11 @@ label { display: block; margin: 14px 0 6px; font-size: 13px; color: var(--dim); 
 @keyframes sp { to { transform: rotate(360deg); } }
 @keyframes pop { from { transform: scale(.4); opacity: 0; } }
 .receipt-card { background: var(--bg); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; margin: 16px 0 8px; text-align: left; font-size: 13px; }
+
+.timeline { display: flex; flex-direction: column; gap: 10px; margin: 16px 0 8px; padding: 14px 16px; background: var(--bg); border: 1px solid var(--line); border-radius: 14px; text-align: left; }
+.timeline-step { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; color: var(--tx); opacity: 0; transform: translateY(4px); animation: stepFadeIn 0.3s ease forwards; animation-delay: var(--delay, 0ms); }
+.timeline-dot { width: 20px; height: 20px; border-radius: 50%; background: rgba(79, 214, 156, 0.2); color: var(--ok); display: grid; place-items: center; font-size: 11px; font-weight: 700; flex: none; }
+@keyframes stepFadeIn { to { opacity: 1; transform: translateY(0); } }
 
 /* Bottom Sheet */
 .sheet-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(2px); z-index: 90; }
@@ -207,7 +241,10 @@ input:-webkit-autofill:active {
     <div class="logo-badge">HQ</div>
     <span>HYQUB</span>
   </div>
-  <button id="btn-theme" class="btn icon-btn" type="button" aria-label="Toggle theme">☼</button>
+  <div class="header-right">
+    <div id="session-timer" class="session-timer" hidden>Session ends in 30:00</div>
+    <button id="btn-theme" class="btn icon-btn" type="button" aria-label="Toggle theme">☼</button>
+  </div>
 </header>
 
 <section id="screen-auth">
@@ -236,77 +273,82 @@ input:-webkit-autofill:active {
     <button id="btn-logout" class="btn">Log out</button>
   </div>
 
-  <div class="bal">
-    <div class="row" style="margin-bottom:12px">
-      <div class="badges-row">
-        <span class="badge ml-dsa-badge">Protected by ML-DSA</span>
-        <span class="badge testnet-badge">Test network</span>
+  <section class="dashboard-grid" style="margin-top:14px">
+    <div id="price-chart" class="span-8"></div>
+    <div class="span-4" style="display:flex;flex-direction:column;gap:14px">
+      <div class="bal" style="margin-top:0">
+        <div class="row" style="margin-bottom:12px">
+          <div class="badges-row">
+            <span class="badge ml-dsa-badge">Protected by ML-DSA</span>
+            <span class="badge testnet-badge">Test network</span>
+          </div>
+          <button id="btn-eye" class="btn" style="padding:6px 12px;font-size:12px" aria-label="Show or hide balance">Hide</button>
+        </div>
+        <div class="dim" style="color:var(--bal-dim);font-size:13px">Available balance</div>
+        <div class="amt"><span id="home-balance">0</span> <span style="font-size:18px">ETH</span></div>
+        <div id="home-demo-usd" class="demo-rate-line">≈ $0.00 at a demo rate. Test ETH has no real value.</div>
+        <div class="acts">
+          <button id="btn-go-pay" class="btn pri" type="button">Send</button>
+          <button id="btn-go-receive" class="btn" type="button">Receive</button>
+          <button id="btn-refresh" class="btn" type="button">Refresh</button>
+          <button id="btn-toggle-security" class="btn" type="button">Security</button>
+        </div>
       </div>
-      <button id="btn-eye" class="btn" style="padding:6px 12px;font-size:12px" aria-label="Show or hide balance">Hide</button>
-    </div>
-    <div class="dim" style="color:var(--bal-dim);font-size:13px">Available balance</div>
-    <div class="amt"><span id="home-balance">0</span> <span style="font-size:18px">ETH</span></div>
-    <div id="home-demo-usd" class="demo-rate-line">≈ $0.00 at a demo rate. Test ETH has no real value.</div>
-    <div class="acts">
-      <button id="btn-go-pay" class="btn pri" type="button">Send</button>
-      <button id="btn-go-receive" class="btn" type="button">Receive</button>
-      <button id="btn-refresh" class="btn" type="button">Refresh</button>
-      <button id="btn-toggle-security" class="btn" type="button">Security</button>
-    </div>
-  </div>
 
-  <div id="card-security" class="card" hidden>
-    <div class="row">
-      <div style="font-weight:600;font-size:14px">Security & Verification</div>
-      <span class="badge ok-badge">Quorum Verified</span>
-    </div>
-    <p id="security-text" class="dim" style="margin:10px 0 0;font-size:13px;line-height:1.5"></p>
-  </div>
+      <div class="card limit-card" style="margin-top:0">
+        <div class="row">
+          <span style="font-weight:600;font-size:14px">Daily limit</span>
+          <span id="limit-text" class="dim" style="font-size:12px">0.000 / 1 ETH sent in 24h</span>
+        </div>
+        <div class="progress-bar">
+          <div id="limit-fill" class="progress-fill" style="width:0%"></div>
+        </div>
+      </div>
 
-  <div class="stats-row">
-    <div class="stat-card">
-      <div class="dim">Payments</div>
-      <div id="stat-payments" class="stat-val">0</div>
-    </div>
-    <div class="stat-card">
-      <div class="dim">Success rate</div>
-      <div id="stat-rate" class="stat-val">-</div>
-    </div>
-    <div class="stat-card">
-      <div class="dim">Received</div>
-      <div id="stat-received" class="stat-val">0</div>
-    </div>
-  </div>
-
-  <div class="card limit-card">
-    <div class="row">
-      <span style="font-weight:600;font-size:14px">Daily limit</span>
-      <span id="limit-text" class="dim" style="font-size:12px">0.000 / 1 ETH sent in 24h</span>
-    </div>
-    <div class="progress-bar">
-      <div id="limit-fill" class="progress-fill" style="width:0%"></div>
-    </div>
-  </div>
-
-  <div id="contacts-wrap" hidden>
-    <h2 style="font-size:16px;margin:20px 0 6px">Send again</h2>
-    <div id="contacts" class="contacts"></div>
-  </div>
-
-  <div class="card activity-card">
-    <div class="activity-header">
-      <h2 style="font-size:16px">Activity</h2>
-      <div class="act-tabs">
-        <button id="tab-filter-all" class="on" type="button">All</button>
-        <button id="tab-filter-sent" type="button">Sent</button>
-        <button id="tab-filter-recv" type="button">Received</button>
-        <button id="tab-filter-fail" type="button">Failed</button>
+      <div id="card-security" class="card" style="margin-top:0" hidden>
+        <div class="row">
+          <div style="font-weight:600;font-size:14px">Security & Verification</div>
+          <span class="badge ok-badge">Quorum Verified</span>
+        </div>
+        <p id="security-text" class="dim" style="margin:10px 0 0;font-size:13px;line-height:1.5"></p>
       </div>
     </div>
-    <div id="home-skel"><div class="skel"></div><div class="skel"></div></div>
-    <div id="home-empty" class="dim" style="padding:14px 0" hidden>No payments yet. Tap Send to make your first one.</div>
-    <div id="home-history"></div>
-  </div>
+
+    <div class="span-12 stats-row" style="margin-top:0">
+      <div class="stat-card">
+        <div class="dim">Payments</div>
+        <div id="stat-payments" class="stat-val">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="dim">Success rate</div>
+        <div id="stat-rate" class="stat-val">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="dim">Received</div>
+        <div id="stat-received" class="stat-val">0</div>
+      </div>
+    </div>
+
+    <div id="contacts-wrap" class="span-12" style="margin-top:0" hidden>
+      <h2 style="font-size:16px;margin:10px 0 6px">Send again</h2>
+      <div id="contacts" class="contacts"></div>
+    </div>
+
+    <div class="card activity-card span-12" style="margin-top:0">
+      <div class="activity-header">
+        <h2 style="font-size:16px">Activity</h2>
+        <div class="act-tabs">
+          <button id="tab-filter-all" class="on" type="button">All</button>
+          <button id="tab-filter-sent" type="button">Sent</button>
+          <button id="tab-filter-recv" type="button">Received</button>
+          <button id="tab-filter-fail" type="button">Failed</button>
+        </div>
+      </div>
+      <div id="home-skel"><div class="skel"></div><div class="skel"></div></div>
+      <div id="home-empty" class="dim" style="padding:14px 0" hidden>No payments yet. Tap Send to make your first one.</div>
+      <div id="home-history"></div>
+    </div>
+  </section>
 </section>
 
 <section id="screen-pay" hidden>
@@ -385,6 +427,24 @@ input:-webkit-autofill:active {
     <div id="status-ring" class="ring spin"></div>
     <h2 id="status-title"></h2>
     <p id="status-sub" class="dim"></p>
+    <div id="status-timeline" class="timeline" hidden>
+      <div class="timeline-step" style="--delay: 0ms">
+        <div class="timeline-dot">✓</div>
+        <div class="timeline-text">Signed with ML-DSA</div>
+      </div>
+      <div class="timeline-step" style="--delay: 250ms">
+        <div class="timeline-dot">✓</div>
+        <div class="timeline-text">Verifier A approved</div>
+      </div>
+      <div class="timeline-step" style="--delay: 500ms">
+        <div class="timeline-dot">✓</div>
+        <div class="timeline-text">Verifier B approved</div>
+      </div>
+      <div class="timeline-step" style="--delay: 750ms">
+        <div class="timeline-dot">✓</div>
+        <div class="timeline-text">Approval token issued</div>
+      </div>
+    </div>
     <div id="status-receipt" class="receipt-card" hidden>
       <div class="row"><span class="dim">To</span><span id="rec-to" style="font-weight:600"></span></div>
       <div class="row" style="margin-top:8px"><span class="dim">Amount</span><span id="rec-amt" style="font-weight:600"></span></div>
@@ -444,6 +504,7 @@ input:-webkit-autofill:active {
 
 </div>
 <div id="toast" role="status"></div>
+<script src="js/price-chart.js"></script>
 <script type="module" src="js/app.js"></script>
 </body>
 </html>
