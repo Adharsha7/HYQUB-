@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HYQUB — Post-Quantum Payment Wallet</title>
+  <meta name="description" content="HYQUB is a payment wallet that protects each transaction with a post-quantum ML-DSA signature and 2-of-2 quorum verification.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/landing.css">
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <header class="site-header">
+    <div class="header-inner container">
+      <a href="#" class="brand" aria-label="HYQUB Home">
+        <svg class="brand-logo" width="34" height="34" viewBox="0 0 34 34" fill="none" aria-hidden="true">
+          <rect width="34" height="34" rx="10" fill="url(#brand-grad)" />
+          <path d="M10 9v16M24 9v16M10 17h14" stroke="#0C0C0C" stroke-width="3" stroke-linecap="round" />
+          <defs>
+            <linearGradient id="brand-grad" x1="0" y1="0" x2="34" y2="34" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#8B5CF6"/>
+              <stop offset="1" stop-color="#F97316"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <span class="brand-name">HYQUB</span>
+      </a>
+
+      <nav class="nav-desktop" aria-label="Main Navigation">
+        <ul class="nav-links">
+          <li><a href="#about" class="nav-link">About</a></li>
+          <li><a href="#how-it-works" class="nav-link">How it works</a></li>
+          <li><a href="#security" class="nav-link">Security</a></li>
+        </ul>
+      </nav>
+
+      <div class="nav-actions">
+        <a href="./index.html" class="btn btn-outline">Login</a>
+        <a href="./index.html" class="btn btn-gradient">Sign up</a>
+        <button id="mobile-toggle" class="btn-menu" type="button" aria-expanded="false" aria-controls="mobile-nav" aria-label="Toggle navigation menu">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <line x1="3" y1="6" x2="21" y2="6"/>
+            <line x1="3" y1="12" x2="21" y2="12"/>
+            <line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Nav Drawer -->
+    <nav id="mobile-nav" class="mobile-nav" hidden aria-label="Mobile Navigation">
+      <ul class="mobile-links">
+        <li><a href="#about" class="mobile-link">About</a></li>
+        <li><a href="#how-it-works" class="mobile-link">How it works</a></li>
+        <li><a href="#security" class="mobile-link">Security</a></li>
+      </ul>
+      <div class="mobile-actions">
+        <a href="./index.html" class="btn btn-outline btn-block">Login</a>
+        <a href="./index.html" class="btn btn-gradient btn-block">Sign up</a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <!-- Hero Section -->
+    <section class="hero container">
+      <div class="hero-content">
+        <div class="hero-pill-badge animate-on-scroll">
+          <span class="hero-pill-dot" aria-hidden="true"></span>
+          <span>Local prototype running on a test chain</span>
+        </div>
+
+        <h1 class="hero-title animate-on-scroll">HYQUB</h1>
+        <p class="hero-tagline animate-on-scroll">Post-quantum payments</p>
+        <p class="hero-subtext animate-on-scroll">
+          Protecting digital transactions with ML-DSA lattice signatures on a local test chain.
+        </p>
+
+        <div class="hero-cta animate-on-scroll">
+          <a href="./index.html" class="btn btn-gradient btn-lg">Get Started</a>
+        </div>
+
+        <div class="hero-art-wrapper animate-on-scroll">
+          <svg class="hero-shield-svg" viewBox="0 0 280 320" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Lattice cryptography security shield">
+            <defs>
+              <linearGradient id="shield-bg" x1="140" y1="20" x2="140" y2="290" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#1E1B4B" stop-opacity="0.8"/>
+                <stop offset="1" stop-color="#0C0C0C" stop-opacity="0.95"/>
+              </linearGradient>
+              <linearGradient id="shield-border" x1="30" y1="20" x2="250" y2="290" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#A78BFA"/>
+                <stop offset="0.5" stop-color="#8B5CF6"/>
+                <stop offset="1" stop-color="#F97316"/>
+              </linearGradient>
+              <linearGradient id="lattice-stroke" x1="60" y1="60" x2="220" y2="240" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#8B5CF6" stop-opacity="0.7"/>
+                <stop offset="1" stop-color="#F97316" stop-opacity="0.7"/>
+              </linearGradient>
+              <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="10" result="blur"/>
+                <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+              </filter>
+            </defs>
+
+            <!-- Outer Shield Glow -->
+            <path d="M140 24L230 64V160C230 220 185 268 140 288C95 268 50 220 50 160V64L140 24Z" fill="url(#shield-border)" opacity="0.25" filter="url(#glow)"/>
+
+            <!-- Shield Body -->
+            <path d="M140 28L226 66V158C226 215 183 261 140 280C97 261 54 215 54 158V66L140 28Z" fill="url(#shield-bg)" stroke="url(#shield-border)" stroke-width="2.5"/>
+
+            <!-- Lattice Grid / Nodes -->
+            <g class="shield-pulse">
+              <!-- Lattice connector lines -->
+              <path d="M140 68L186 102M140 68L94 102M94 102L94 164M186 102L186 164M94 164L140 200M186 164L140 200" stroke="url(#lattice-stroke)" stroke-width="2" stroke-linecap="round"/>
+              <path d="M140 68L140 200M94 102L186 164M186 102L94 164" stroke="url(#lattice-stroke)" stroke-width="1.5" stroke-dasharray="3 3"/>
+
+              <!-- Central Core -->
+              <circle cx="140" cy="134" r="26" fill="#141416" stroke="url(#shield-border)" stroke-width="2"/>
+              <circle cx="140" cy="134" r="10" fill="#F97316"/>
+
+              <!-- Lattice vertices -->
+              <circle cx="140" cy="68" r="5" fill="#8B5CF6"/>
+              <circle cx="94" cy="102" r="5" fill="#A78BFA"/>
+              <circle cx="186" cy="102" r="5" fill="#A78BFA"/>
+              <circle cx="94" cy="164" r="5" fill="#F97316"/>
+              <circle cx="186" cy="164" r="5" fill="#F97316"/>
+              <circle cx="140" cy="200" r="5" fill="#FB923C"/>
+
+              <!-- Quantum Wave Accent Lines -->
+              <path d="M80 236C100 248 120 252 140 252C160 252 180 248 200 236" stroke="#8B5CF6" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+            </g>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- Ticker Section -->
+    <section class="ticker-section" aria-label="Feature Ticker">
+      <div class="ticker-track">
+        <span class="ticker-item">ML-DSA-65</span>
+        <span class="ticker-separator" aria-hidden="true">/</span>
+        <span class="ticker-item">ERC-4337</span>
+        <span class="ticker-separator" aria-hidden="true">/</span>
+        <span class="ticker-item">2-of-2 Quorum</span>
+        <span class="ticker-separator" aria-hidden="true">/</span>
+        <span class="ticker-item">Smart Wallet</span>
+        <span class="ticker-separator" aria-hidden="true">/</span>
+        <span class="ticker-item">ML-DSA-65</span>
+        <span class="ticker-separator" aria-hidden="true">/</span>
+        <span class="ticker-item">ERC-4337</span>
+        <span class="ticker-separator" aria-hidden="true">/</span>
+        <span class="ticker-item">2-of-2 Quorum</span>
+        <span class="ticker-separator" aria-hidden="true">/</span>
+        <span class="ticker-item">Smart Wallet</span>
+        <span class="ticker-separator" aria-hidden="true">/</span>
+        <span class="ticker-item">ML-DSA-65</span>
+        <span class="ticker-separator" aria-hidden="true">/</span>
+        <span class="ticker-item">ERC-4337</span>
+        <span class="ticker-separator" aria-hidden="true">/</span>
+        <span class="ticker-item">2-of-2 Quorum</span>
+        <span class="ticker-separator" aria-hidden="true">/</span>
+        <span class="ticker-item">Smart Wallet</span>
+        <span class="ticker-separator" aria-hidden="true">/</span>
+        <span class="ticker-item">ML-DSA-65</span>
+        <span class="ticker-separator" aria-hidden="true">/</span>
+        <span class="ticker-item">ERC-4337</span>
+        <span class="ticker-separator" aria-hidden="true">/</span>
+        <span class="ticker-item">2-of-2 Quorum</span>
+        <span class="ticker-separator" aria-hidden="true">/</span>
+        <span class="ticker-item">Smart Wallet</span>
+      </div>
+    </section>
+
+    <!-- About Section -->
+    <section id="about" class="section container">
+      <div class="section-header animate-on-scroll">
+        <div class="section-label">About</div>
+        <h2 class="section-title">Next-Generation Security</h2>
+      </div>
+
+      <div class="about-card animate-on-scroll">
+        <p class="about-text">
+          HYQUB is a payment wallet that protects each transaction with a post-quantum ML-DSA signature. Every payment is verified by two independent verifiers before the smart wallet executes it.
+        </p>
+      </div>
+    </section>
+
+    <!-- How It Works Section -->
+    <section id="how-it-works" class="section container">
+      <div class="section-header animate-on-scroll">
+        <div class="section-label">Workflow</div>
+        <h2 class="section-title">How It Works</h2>
+      </div>
+
+      <div class="steps-grid">
+        <article class="step-card animate-on-scroll">
+          <span class="step-num">01</span>
+          <h3 class="step-title">Sign up</h3>
+          <p class="step-desc">Create your account and initialize your local post-quantum wallet.</p>
+        </article>
+
+        <article class="step-card animate-on-scroll">
+          <span class="step-num">02</span>
+          <h3 class="step-title">Key setup</h3>
+          <p class="step-desc">Generate your ML-DSA-65 public-private keypair securely on your device.</p>
+        </article>
+
+        <article class="step-card animate-on-scroll">
+          <span class="step-num">03</span>
+          <h3 class="step-title">Create intent</h3>
+          <p class="step-desc">Specify the recipient and payment amount to build a transaction intent.</p>
+        </article>
+
+        <article class="step-card animate-on-scroll">
+          <span class="step-num">04</span>
+          <h3 class="step-title">Sign with ML-DSA</h3>
+          <p class="step-desc">Authorize the transfer using a quantum-resistant lattice-based signature.</p>
+        </article>
+
+        <article class="step-card animate-on-scroll">
+          <span class="step-num">05</span>
+          <h3 class="step-title">Verify and submit</h3>
+          <p class="step-desc">Two independent verifiers validate the quorum before on-chain execution.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- Security Section -->
+    <section id="security" class="section container">
+      <div class="section-header animate-on-scroll">
+        <div class="section-label">Architecture</div>
+        <h2 class="section-title">Security by Design</h2>
+      </div>
+
+      <div class="security-grid">
+        <article class="sec-card animate-on-scroll">
+          <div class="sec-icon-wrap" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+          </div>
+          <h3 class="sec-title">Post-quantum signatures</h3>
+          <p class="sec-desc">
+            Protected by ML-DSA-65 (FIPS 204), securing authentication against future quantum computing threats.
+          </p>
+        </article>
+
+        <article class="sec-card animate-on-scroll">
+          <div class="sec-icon-wrap" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <polyline points="16 11 18 13 22 9"/>
+            </svg>
+          </div>
+          <h3 class="sec-title">2-of-2 verification</h3>
+          <p class="sec-desc">
+            Independent dual-verifier quorum validates signatures and transaction parameters before contract execution.
+          </p>
+        </article>
+
+        <article class="sec-card animate-on-scroll">
+          <div class="sec-icon-wrap" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="4" width="20" height="16" rx="3"/>
+              <line x1="2" y1="10" x2="22" y2="10"/>
+              <circle cx="17" cy="15" r="1.5"/>
+            </svg>
+          </div>
+          <h3 class="sec-title">Smart wallet</h3>
+          <p class="sec-desc">
+            Account abstraction (ERC-4337 style) ensures programmable execution, daily limits, and security rules.
+          </p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer Section -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-demo-box">
+        <h2 class="footer-demo-title">Try the demo</h2>
+        <div class="footer-cta-row">
+          <a href="./index.html" class="btn btn-outline btn-lg">Login</a>
+          <a href="./index.html" class="btn btn-gradient btn-lg">Sign up</a>
+        </div>
+      </div>
+      <p class="footer-disclaimer">Local prototype running on a test chain.</p>
+    </div>
+  </footer>
+
+  <script src="js/landing.js"></script>
+</body>
+</html>
